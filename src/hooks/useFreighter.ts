@@ -213,10 +213,20 @@ export function useFreighter() {
   const signTx = useCallback(
     async (xdr: string) => {
       if (!wallet.isConnected) throw new Error('Wallet not connected');
-      const { signedTxXdr, error } = await freighterSignTransaction(xdr, {
+
+      let { signedTxXdr, error } = await freighterSignTransaction(xdr, {
         networkPassphrase: STELLAR_CONFIG.networkPassphrase,
       });
+
       if (error) {
+        // Fallback: attempt signing without strict networkPassphrase if extension is in custom/testnet mode
+        try {
+          const fallback = await freighterSignTransaction(xdr);
+          if (fallback.signedTxXdr && !fallback.error) {
+            return fallback.signedTxXdr;
+          }
+        } catch (e) {}
+
         const tracked = errorTracker.log(error);
         throw new Error(tracked.message || 'User rejected transaction signature');
       }
@@ -224,6 +234,7 @@ export function useFreighter() {
     },
     [wallet.isConnected]
   );
+
 
   return {
     wallet,
