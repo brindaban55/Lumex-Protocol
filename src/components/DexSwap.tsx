@@ -199,12 +199,17 @@ export const DexSwap: React.FC<DexSwapProps> = ({
         colors: ['#00E599', '#00C2FF', '#2775CA'],
       });
 
-      if (onRefreshBalances) onRefreshBalances();
+      if (onRefreshBalances) {
+        onRefreshBalances();
+        setTimeout(() => onRefreshBalances(), 1500);
+        setTimeout(() => onRefreshBalances(), 3500);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || 'Swap execution failed on Stellar Testnet.');
     } finally {
       setIsSwapping(false);
     }
+
   };
 
   return (

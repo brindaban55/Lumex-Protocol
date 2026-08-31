@@ -895,8 +895,8 @@ export function useVaultContract(
             : StellarSdk.Asset.native();
 
           const payoutTx = new StellarSdk.TransactionBuilder(vaultAcc, {
-            fee: '100',
-            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+            fee: '1000',
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase || StellarSdk.Networks.TESTNET,
           })
             .addOperation(
               StellarSdk.Operation.payment({
@@ -911,8 +911,9 @@ export function useVaultContract(
           payoutTx.sign(adminKey);
           await horizonServer.submitTransaction(payoutTx);
         } catch (payoutErr: any) {
-          console.warn('[Swap Payout] Testnet fulfillment:', payoutErr?.message);
+          console.warn('[Swap Payout] Testnet fulfillment:', payoutErr?.response?.data || payoutErr?.message || payoutErr);
         }
+
 
 
         setActiveTxHash(finalTxHash);
