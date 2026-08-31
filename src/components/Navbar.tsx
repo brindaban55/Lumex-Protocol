@@ -147,9 +147,10 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenT
                   className="hidden md:flex items-center gap-1.5 rounded-lg border border-[#00E599]/30 bg-[#00E599]/10 px-2.5 py-1.5 text-xs font-semibold text-[#00E599] hover:bg-[#00E599]/20 transition-all active:scale-95"
                   title="Interactive How-It-Works Tour"
                 >
-                  <span>Quick Tour 🚀</span>
+                  <span>Quick Tour</span>
                 </button>
               )}
+
 
               {/* Network Status Beacon */}
               <div className="hidden sm:flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5">

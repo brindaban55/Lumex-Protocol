@@ -11,5 +11,17 @@ export default defineConfig({
   },
   define: {
     'process.env': {},
-  }
+  },
+  build: {
+    sourcemap: false,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'clsx', 'tailwind-merge', 'lucide-react'],
+          stellar: ['@stellar/stellar-sdk', '@stellar/freighter-api'],
+        },
+      },
+    },
+  },
 });

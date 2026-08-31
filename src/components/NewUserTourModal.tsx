@@ -9,7 +9,8 @@ import {
   Bot, 
   Sparkles, 
   Layers, 
-  CheckCircle2
+  CheckCircle2,
+  ArrowDownUp
 } from 'lucide-react';
 
 interface NewUserTourModalProps {
@@ -29,7 +30,7 @@ export const NewUserTourModal: React.FC<NewUserTourModalProps> = ({
 
   const steps = [
     {
-      badge: 'Step 1 of 4 • Architecture',
+      badge: 'Step 1 of 5 • Architecture',
       title: 'Automated Yield on Stellar & Soroban',
       description:
         'Lumex is a non-custodial yield optimization protocol. Instead of letting your XLM, USDC, or AQUA sit idle in your wallet, our smart contracts put your assets to work directly in native Stellar DEX AMM liquidity pools.',
@@ -37,13 +38,13 @@ export const NewUserTourModal: React.FC<NewUserTourModalProps> = ({
       color: '#00E599',
       image: '/images/hero-vault-3d.png',
       features: [
-        'Built directly on Stellar Protocol 20+ & Soroban Rust smart contracts.',
+        'Built directly on Stellar Protocol 20+ and Soroban Rust smart contracts.',
         'Zero gas overhead: typical transactions cost less than $0.00001.',
         'Deposit with as little as 10 XLM without losing profits to gas fees.',
       ],
     },
     {
-      badge: 'Step 2 of 4 • Real Yield',
+      badge: 'Step 2 of 5 • Real Yield',
       title: 'Where Does the Yield Come From?',
       description:
         'Zero gimmicks or fake inflation. Every single swap executed on the Stellar DEX charges a 0.30% trading fee. Lumex vault depositors earn 100% of these fees proportional to their pool share.',
@@ -57,7 +58,21 @@ export const NewUserTourModal: React.FC<NewUserTourModalProps> = ({
       ],
     },
     {
-      badge: 'Step 3 of 4 • Auto-Compounding',
+      badge: 'Step 3 of 5 • Token Exchange',
+      title: 'Soroban Constant-Product Token Swap',
+      description:
+        'Traders and users can swap assets directly against our Soroban smart contract liquidity pools. Every trade charges a 0.30% fee that feeds directly into the vault to generate real staking returns.',
+      icon: ArrowDownUp,
+      color: '#00C2FF',
+      image: '/images/hero-vault-3d.png',
+      features: [
+        'Instant liquidity swaps between XLM, USDC, and AQUA.',
+        '0.30% swap fee routes directly into the vault pool for depositors.',
+        'Enables a fully closed-loop decentralized exchange economy on Stellar.',
+      ],
+    },
+    {
+      badge: 'Step 4 of 5 • Auto-Compounding',
       title: '15-Minute Decentralized Keeper Harvesting',
       description:
         'Normally, compounding requires manual claiming and gas fees. Lumex features open keeper bots that harvest and reinvest trading fees every 15 minutes, incentivized by a 1% bounty.',
@@ -65,13 +80,13 @@ export const NewUserTourModal: React.FC<NewUserTourModalProps> = ({
       color: '#A855F7',
       image: '/images/keeper-bot-3d.png',
       features: [
-        'Fully autonomous compound cycles running 24/7 on the Stellar network.',
+        'Autonomous compound cycles running on the Stellar network.',
         'Anyone can trigger compound cycles and claim the 1% keeper reward.',
-        'Continuous exponential compound curves maximize APY over time.',
+        'Continuous compound curves maximize APY over time.',
       ],
     },
     {
-      badge: 'Step 4 of 4 • Non-Custodial Safety',
+      badge: 'Step 5 of 5 • Non-Custodial Safety',
       title: '100% Non-Custodial & Instant Emergency Exit',
       description:
         'You always retain full cryptographic ownership of your deposited assets. There are no lockup periods or withdrawal restrictions. Withdraw anytime or use the 1-Click Instant Emergency Exit.',
@@ -85,6 +100,7 @@ export const NewUserTourModal: React.FC<NewUserTourModalProps> = ({
       ],
     },
   ];
+
 
   const step = steps[currentStep];
   const StepIcon = step.icon;

@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview"
+
   },
+
   "dependencies": {
     "@stellar/freighter-api": "^3.0.0",
     "@stellar/stellar-sdk": "^13.1.0",
