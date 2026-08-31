@@ -6,6 +6,7 @@ import { UserPositionCard } from './components/UserPositionCard';
 import { AutoCompoundTerminal } from './components/AutoCompoundTerminal';
 import { AnalyticsMonitoring } from './components/AnalyticsMonitoring';
 import { ProofOfInteractions } from './components/ProofOfInteractions';
+import { DexSwap } from './components/DexSwap';
 import { UserFeedbackModal } from './components/UserFeedbackModal';
 import { WithdrawModal } from './components/WithdrawModal';
 import { NewUserTourModal } from './components/NewUserTourModal';
@@ -34,6 +35,7 @@ export function App() {
     deposit, 
     withdraw, 
     emergencyWithdraw, 
+    swapTokens,
     isLoadingPosition, 
     refreshUserPosition, 
     syncOnChainPositions 
@@ -94,6 +96,25 @@ export function App() {
             </>
           )}
 
+          {activeTab === 'swap' && (
+            <DexSwap
+              userAddress={activeAddress}
+              xlmBalance={freighter.isConnected ? freighter.xlmBalance : guestWallet.xlmBalance}
+              pools={pools}
+              onSwapExecute={swapTokens}
+              onRefreshBalances={() => {
+                if (freighter.isConnected) {
+                  freighter.refreshBalances();
+                } else {
+                  guestWallet.refreshGuestBalances();
+                }
+                syncOnChainPositions();
+                refreshPools();
+              }}
+            />
+          )}
+
+
           {activeTab === 'positions' && (
             <UserPositionCard
               positions={userPositions}
@@ -104,6 +125,7 @@ export function App() {
               onRefresh={syncOnChainPositions}
             />
           )}
+
 
           {activeTab === 'autocompound' && (
             <AutoCompoundTerminal

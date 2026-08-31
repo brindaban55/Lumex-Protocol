@@ -15,7 +15,8 @@ import {
   ShieldCheck, 
   Database,
   Smartphone,
-  Laptop
+  Laptop,
+  ArrowDownUp
 } from 'lucide-react';
 import { useFreighter } from '../hooks/useFreighter';
 import { useGuestWallet } from '../hooks/useGuestWallet';
@@ -79,14 +80,15 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenT
     setShowDropdown(false);
   };
 
-
   const navItems = [
     { id: 'pools', label: 'Vault Strategies', icon: Layers },
+    { id: 'swap', label: 'DEX Swap', icon: ArrowDownUp },
     { id: 'positions', label: 'My Positions', icon: ShieldCheck },
     { id: 'autocompound', label: 'Auto-Compounder', icon: Cpu },
     { id: 'analytics', label: 'Telemetry & Health', icon: LineChart },
     { id: 'proofs', label: 'On-Chain Proofs', icon: Database },
   ];
+
 
   return (
     <>

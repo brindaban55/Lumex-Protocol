@@ -26,9 +26,13 @@ export type AnalyticsEventType =
   | 'compound_success'
   | 'emergency_exit_initiated'
   | 'emergency_exit_success'
+  | 'dex_swap_initiated'
+  | 'dex_swap_start'
+  | 'dex_swap_success'
   | 'feedback_submitted'
   | 'tab_switched'
   | 'pool_refreshed';
+
 
 export interface AnalyticsEventPayload {
   eventName: AnalyticsEventType;

@@ -10,11 +10,12 @@
 
 export interface KeeperAlertPayload {
   poolId: string;
-  action: 'Auto-Compound' | 'Deposit' | 'Withdraw' | 'Emergency-Exit';
+  action: 'Auto-Compound' | 'Deposit' | 'Withdraw' | 'Emergency-Exit' | 'DEX Swap';
   amount?: string;
   txHash?: string;
   bounty?: string;
 }
+
 
 class TelegramAlertService {
   private botToken: string = import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '';
