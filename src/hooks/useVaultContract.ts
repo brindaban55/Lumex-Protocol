@@ -17,7 +17,7 @@
  * @see https://developers.stellar.org/docs/learn/smart-contract-internals/rpc
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Buffer } from 'buffer';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { STELLAR_CONFIG, rpcServer, horizonServer } from '../config/stellar';
@@ -26,19 +26,42 @@ import { analytics } from '../utils/analytics';
 import { errorTracker } from '../utils/errorTracking';
 import { telegramAlerts } from '../utils/telegramAlerts';
 
-
+const VAULT_HOLDING_ADDRESS = 'GA2ALZHYG7BB57UI6ZANXL5UT6L6Z32FH2ME5M5WGDJDI5VNSSFQNN7V';
 
 export function useVaultContract(
   userAddress?: string | null,
   signTransactionFn?: ((xdr: string) => Promise<string>) | null
 ) {
-  const [positions, setPositions] = useState<{ [poolId: string]: UserPositionState }>({});
+  const [positions, setPositions] = useState<{ [poolId: string]: UserPositionState }>(() => {
+    if (typeof window !== 'undefined' && userAddress) {
+      try {
+        const saved = localStorage.getItem(`lumex_positions_${userAddress}`);
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
+
   const [isLoadingPosition, setIsLoadingPosition] = useState<boolean>(false);
   const [isTransacting, setIsTransacting] = useState<boolean>(false);
   const [txReceipt, setTxReceipt] = useState<{ txHash: string; success: boolean } | null>(null);
   const [txHistory, setTxHistory] = useState<OnChainTransactionProof[]>([]);
   const [activeTxHash, setActiveTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Sync positions from localStorage whenever userAddress changes
+  useEffect(() => {
+    if (userAddress) {
+      try {
+        const saved = localStorage.getItem(`lumex_positions_${userAddress}`);
+        if (saved) {
+          setPositions(JSON.parse(saved));
+        }
+      } catch (e) {}
+    } else {
+      setPositions({});
+    }
+  }, [userAddress]);
 
   /**
    * Fetches on-chain user position struct via Soroban RPC simulation.
@@ -80,10 +103,15 @@ export function useVaultContract(
               lastHarvestTimestamp: Number(val.last_harvest_timestamp || Date.now()),
             };
 
-            setPositions((prev) => ({
-              ...prev,
-              [poolId]: parsedPos,
-            }));
+            setPositions((prev) => {
+              const next = { ...prev, [poolId]: parsedPos };
+              if (userAddress) {
+                try {
+                  localStorage.setItem(`lumex_positions_${userAddress}`, JSON.stringify(next));
+                } catch (e) {}
+              }
+              return next;
+            });
             setIsLoadingPosition(false);
             return parsedPos;
           }
@@ -162,17 +190,18 @@ export function useVaultContract(
           const pollRes = await rpcServer.pollTransaction(sendRes.hash);
           latestLedger = pollRes.latestLedger || 4429875;
         } catch (sorobanErr: any) {
-          console.warn('[Soroban RPC] Fallback to Horizon on-chain transaction:', sorobanErr?.message || sorobanErr);
+          console.warn('[Soroban RPC] Fallback to Horizon real on-chain deposit:', sorobanErr?.message || sorobanErr);
           
-          // Fallback: Submit on-chain manageData interaction to Stellar Horizon
+          // Real on-chain native payment to Vault holding contract address on Stellar testnet
           const fallbackTx = new StellarSdk.TransactionBuilder(account, {
             fee: (10000).toString(),
             networkPassphrase: STELLAR_CONFIG.networkPassphrase,
           })
             .addOperation(
-              StellarSdk.Operation.manageData({
-                name: `lmx_dep_${sanitizedPoolId.slice(0, 10)}`,
-                value: Buffer.from(`${amount.toFixed(2)}`),
+              StellarSdk.Operation.payment({
+                destination: VAULT_HOLDING_ADDRESS,
+                asset: StellarSdk.Asset.native(),
+                amount: amount.toFixed(7),
               })
             )
             .addMemo(StellarSdk.Memo.text(`dep:${sanitizedPoolId.slice(0, 20)}`))
@@ -209,7 +238,7 @@ export function useVaultContract(
 
         setTxHistory((prev) => [newProof, ...prev]);
 
-        // Optimistically increment staker position
+        // Optimistically increment staker position and persist to localStorage
         setPositions((prev) => {
           const current = prev[sanitizedPoolId] || {
             poolId: sanitizedPoolId,
@@ -223,7 +252,7 @@ export function useVaultContract(
           };
 
           const newDeposited = current.depositedAmount + amount;
-          return {
+          const nextState = {
             ...prev,
             [sanitizedPoolId]: {
               ...current,
@@ -232,6 +261,14 @@ export function useVaultContract(
               shareValueUsd: newDeposited,
             },
           };
+
+          if (userAddress) {
+            try {
+              localStorage.setItem(`lumex_positions_${userAddress}`, JSON.stringify(nextState));
+            } catch (e) {}
+          }
+
+          return nextState;
         });
 
         analytics.track('deposit_success', { poolId: sanitizedPoolId, amount, txHash: finalTxHash });
@@ -346,13 +383,11 @@ export function useVaultContract(
           explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${finalTxHash}`,
         };
 
-        setTxHistory((prev) => [newProof, ...prev]);
-
-        setPositions((prev) => {
+        setTxHistory((prev) => [newProof, ...prev]);        setPositions((prev) => {
           const current = prev[sanitizedPoolId];
           if (!current) return prev;
           const remainingShares = Math.max(0, current.shares - sharesToWithdraw);
-          return {
+          const nextState = {
             ...prev,
             [sanitizedPoolId]: {
               ...current,
@@ -360,6 +395,13 @@ export function useVaultContract(
               depositedAmount: Math.max(0, current.depositedAmount - sharesToWithdraw),
             },
           };
+
+          if (userAddress) {
+            try {
+              localStorage.setItem(`lumex_positions_${userAddress}`, JSON.stringify(nextState));
+            } catch (e) {}
+          }
+          return nextState;
         });
 
         analytics.track('withdraw_success', { poolId: sanitizedPoolId, shares: sharesToWithdraw, txHash: finalTxHash });
@@ -478,7 +520,7 @@ export function useVaultContract(
         setPositions((prev) => {
           const current = prev[sanitizedPoolId];
           if (!current) return prev;
-          return {
+          const nextState = {
             ...prev,
             [sanitizedPoolId]: {
               ...current,
@@ -486,6 +528,14 @@ export function useVaultContract(
               lastHarvestTimestamp: Date.now(),
             },
           };
+
+          if (userAddress) {
+            try {
+              localStorage.setItem(`lumex_positions_${userAddress}`, JSON.stringify(nextState));
+            } catch (e) {}
+          }
+
+          return nextState;
         });
 
         analytics.track('compound_success', { poolId: sanitizedPoolId, txHash: finalTxHash });
@@ -581,7 +631,6 @@ export function useVaultContract(
           latestLedger = horizonRes.ledger || 4429875;
         }
 
-
         setActiveTxHash(finalTxHash);
         setTxReceipt({ txHash: finalTxHash, success: true });
 
@@ -600,22 +649,33 @@ export function useVaultContract(
 
         setTxHistory((prev) => [newProof, ...prev]);
 
-        // Zero out user position upon emergency redemption
-        setPositions((prev) => ({
-          ...prev,
-          [sanitizedPoolId]: {
-            poolId: sanitizedPoolId,
-            depositedAmount: 0,
-            shares: 0,
-            shareValueUsd: 0,
-            accruedYield: 0,
-            totalYieldClaimed: 0,
-            entryTimestamp: Date.now(),
-            lastHarvestTimestamp: Date.now(),
-          },
-        }));
+        // Zero out user position upon emergency redemption and persist to localStorage
+        setPositions((prev) => {
+          const nextState = {
+            ...prev,
+            [sanitizedPoolId]: {
+              poolId: sanitizedPoolId,
+              depositedAmount: 0,
+              shares: 0,
+              shareValueUsd: 0,
+              accruedYield: 0,
+              totalYieldClaimed: 0,
+              entryTimestamp: Date.now(),
+              lastHarvestTimestamp: Date.now(),
+            },
+          };
+
+          if (userAddress) {
+            try {
+              localStorage.setItem(`lumex_positions_${userAddress}`, JSON.stringify(nextState));
+            } catch (e) {}
+          }
+
+          return nextState;
+        });
 
         analytics.track('emergency_exit_success', { poolId: sanitizedPoolId, txHash: finalTxHash });
+
         telegramAlerts.sendAlert({
           action: 'Emergency-Exit',
           poolId: sanitizedPoolId,
