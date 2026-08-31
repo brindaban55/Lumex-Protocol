@@ -20,7 +20,9 @@ import {
   signTransaction as freighterSignTransaction,
   getNetwork as freighterGetNetwork,
 } from '@stellar/freighter-api';
+import * as StellarSdk from '@stellar/stellar-sdk';
 import { STELLAR_CONFIG, horizonServer } from '../config/stellar';
+
 import { analytics } from '../utils/analytics';
 import { errorTracker } from '../utils/errorTracking';
 
@@ -214,26 +216,20 @@ export function useFreighter() {
     async (xdr: string) => {
       if (!wallet.isConnected) throw new Error('Wallet not connected');
 
-      let { signedTxXdr, error } = await freighterSignTransaction(xdr, {
-        networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+      const { signedTxXdr, error } = await freighterSignTransaction(xdr, {
+        networkPassphrase: STELLAR_CONFIG.networkPassphrase || StellarSdk.Networks.TESTNET,
+        address: wallet.address || undefined,
       });
 
       if (error) {
-        // Fallback: attempt signing without strict networkPassphrase if extension is in custom/testnet mode
-        try {
-          const fallback = await freighterSignTransaction(xdr);
-          if (fallback.signedTxXdr && !fallback.error) {
-            return fallback.signedTxXdr;
-          }
-        } catch (e) {}
-
         const tracked = errorTracker.log(error);
         throw new Error(tracked.message || 'User rejected transaction signature');
       }
       return signedTxXdr;
     },
-    [wallet.isConnected]
+    [wallet.isConnected, wallet.address]
   );
+
 
 
   return {
