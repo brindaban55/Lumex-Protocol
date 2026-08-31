@@ -37,7 +37,8 @@ export const STELLAR_CONFIG = {
   explorerBaseUrl: (import.meta.env.VITE_EXPLORER_BASE_URL as string) || 'https://stellar.expert/explorer/testnet',
   
   // Real Deployed YieldVault Soroban Contract ID on Stellar Testnet
-  contractId: (import.meta.env.VITE_CONTRACT_ID as string) || 'CASS7HZXKDIRM7A3NO35O34PKCPR7NQ2U24W5I2X24YDAA4WMN6LLR4Y',
+  contractId: (import.meta.env.VITE_CONTRACT_ID as string) || 'CDKV6FUDD53DMLVJTDB2POXG4RNIYR5ZRPJH3VEOUI2CRNJY7CBQZB2N',
+
   
   // Stellar Reserve Constants (Protocol 20+)
   baseReservePerEntry: 0.5, // 0.5 XLM per active trustline / signers / data subentry
