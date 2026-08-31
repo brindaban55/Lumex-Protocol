@@ -71,7 +71,7 @@ export const UserFeedbackModal: React.FC<UserFeedbackModalProps> = ({
           method: 'POST',
           mode: 'no-cors', // Google Apps Script Web Apps require no-cors or redirect handling
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'text/plain;charset=utf-8',
           },
           body: JSON.stringify(feedbackPayload),
         });

@@ -16,7 +16,8 @@ import {
   Database,
   Smartphone,
   Laptop,
-  ArrowDownUp
+  ArrowDownUp,
+  MessageSquare
 } from 'lucide-react';
 import { useFreighter } from '../hooks/useFreighter';
 import { useGuestWallet } from '../hooks/useGuestWallet';
@@ -34,6 +35,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ 
   activeTab, 
   setActiveTab, 
+  openFeedbackModal,
   onOpenTour,
   freighterState,
   guestWalletState,
@@ -152,6 +154,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Right Action Bar */}
             <div className="flex items-center gap-3.5">
+              {/* Feedback Button */}
+              {openFeedbackModal && (
+                <button
+                  onClick={openFeedbackModal}
+                  className="flex items-center gap-1.5 rounded-lg border border-white/[0.12] bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-[#00E599]/40 hover:bg-[#00E599]/10 hover:text-[#00E599] transition-all active:scale-95 shadow-sm"
+                  title="Share Feedback & Report Issues"
+                >
+                  <MessageSquare className="h-3.5 w-3.5 text-[#00E599]" />
+                  <span>Feedback</span>
+                </button>
+              )}
+
               {/* Quick Tour Walkthrough Button */}
               {onOpenTour && (
                 <button
@@ -294,6 +308,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </button>
                 );
               })}
+
+              {openFeedbackModal && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    openFeedbackModal();
+                  }}
+                  className="flex items-center gap-3 rounded-xl border border-[#00E599]/20 bg-[#00E599]/10 px-4 py-3 text-sm font-semibold text-[#00E599] hover:bg-[#00E599]/20 transition-all mt-1"
+                >
+                  <MessageSquare className="h-5 w-5 text-[#00E599]" />
+                  <span>Share Feedback & Bug Report</span>
+                </button>
+              )}
             </nav>
           </div>
         )}

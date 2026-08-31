@@ -25,37 +25,25 @@
 | **Testnet AQUA Asset Issuer** | [`GBBPUNXTOJSINRNS7LRYX6K5SDQ2W3RV6MEE3CMN34XD5TSCUTPNAPLP`](https://stellar.expert/explorer/testnet/account/GBBPUNXTOJSINRNS7LRYX6K5SDQ2W3RV6MEE3CMN34XD5TSCUTPNAPLP) |
 | **Network** | Stellar Testnet (`Test SDF Network ; September 2015`) |
 
-
 ---
 
-## 💡 What is Lumex Protocol?
+## 💡 What is Lumex Protocol & Why It Is Needed
 
-**Lumex Protocol** is an institutional-grade, non-custodial automated yield optimization and decentralized liquidity management platform built natively on **Stellar** and **Soroban**.
+**Lumex Protocol** is an institutional-grade, non-custodial automated yield optimizer and liquidity management protocol engineered natively on **Stellar** and **Soroban smart contracts**.
 
-It delivers a complete, closed-loop decentralized finance flywheel:
-1. **Liquidity Providers** deposit assets (XLM, USDC, AQUA) into non-custodial Soroban strategy vaults.
-2. **Traders** swap tokens against the Soroban AMM pool with sub-second settlement.
-3. Every swap captures a **0.30% LP fee** that is routed directly into the vault pool reserves.
-4. An **Open Keeper Bot Network** automatically harvests and compounds these fees every 15 minutes, minting new vault shares for stakers.
-5. **Depositors** withdraw their original principal plus all compounded trading fees with zero lockup restrictions.
-
----
-
-## 🎯 The Motivation: Why Build Lumex on Stellar?
-
-### The Problem in Traditional DeFi
-* **Excessive Gas Costs on EVM**: On Ethereum and Layer-2 rollups, executing an auto-compound transaction costs between $2.00 and $45.00 in gas. This makes frequent compounding economically impractical for users with deposits under $50,000.
-* **Idle Capital on Stellar**: Stellar settles billions of dollars in remittance and payment transactions daily, yet retail and institutional assets often sit idle in non-interest-bearing accounts.
-* **Manual Yield Collection**: Liquidity providers on Stellar AMM pools must manually claim trading fees, calculate optimal reinvestment ratios, and sign multiple transactions to compound returns.
+### The Problem in Existing DeFi
+1. **Expensive Auto-Compounding on EVM**: On Ethereum and Layer-2 rollups, harvesting and auto-compounding transactions cost $2 to $45 in gas. For retail and everyday stakers, compounding fees erode yields entirely.
+2. **Idle Capital Across Payment Rails**: Stellar processes massive global remittance volume, but assets frequently sit idle in static non-interest-bearing accounts.
+3. **Manual Fee Reinvestment**: Stellar AMM liquidity providers traditionally have to manually claim trading fees, calculate optimal reinvestment ratios, and sign multiple transactions.
 
 ### The Lumex Solution
-* **Micro-Cent Gas Efficiency**: Stellar transactions cost less than **$0.00001**, allowing Lumex keeper bots to compound trading yields as often as every **15 minutes** without eroding user returns.
-* **Non-Custodial ERC-4626 / SEP-41 Architecture**: Users retain full cryptographic ownership of their assets. Deposited funds are managed by audited Soroban smart contracts, not centralized intermediaries.
-* **Zero-Mock Financial Integrity**: All pool statistics, balances, staker counts, and APY figures are queried in real time directly from the Stellar Horizon API and Soroban RPC nodes.
+- **Sub-Cent Micro-Gas Compounding**: Stellar's sub-cent transaction fees ($<0.00001) allow Lumex keeper bots to compound yields as frequently as every **15 minutes** (35,040 times per year) without diminishing user capital.
+- **ERC-4626 / SEP-41 Vault Architecture**: Stakers receive cryptographic yield-bearing vault shares that appreciate proportionally with every harvested AMM trading fee.
+- **Zero-Mock Financial Integrity**: All pool reserves, APY metrics, staker counts, and trade execution routes stream live directly from Stellar Horizon and Soroban RPC nodes.
 
 ---
 
-## 🔄 The Closed-Loop Economic Flywheel
+## 🔄 System Architecture & Closed-Loop Flywheel
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -86,62 +74,55 @@ It delivers a complete, closed-loop decentralized finance flywheel:
     └────────────────────┘
 ```
 
----
-
-## 💼 Capitalization & Commercial Scope
-
-### 1. Market Opportunity
-* **Global Remittances**: Over $850 billion is transferred globally each year. Stellar is the leading blockchain rail for cross-border payments. Lumex provides liquidity routing that allows remittance corridors to earn yield while maintaining instant liquidity.
-* **Stablecoin Liquidity Management**: Anchor institutions and payment aggregators holding USDC on Stellar can deploy treasury balances into Lumex vaults to generate passive APY (12% - 31.8%) with instant emergency liquidity.
-
-### 2. Revenue & Monetization Model
-* **Protocol Performance Fee**: A nominal 2.0% fee on harvested yield is directed to the Lumex DAO treasury for ongoing protocol development and security audits.
-* **Keeper Bounty Distribution**: 1.0% of harvested yield is awarded directly to decentralized keeper bots, ensuring 24/7 autonomous maintenance of the protocol.
-* **Institutional Custom Strategies**: B2B white-label yield routing for fintech wallets (e.g., Beans, LOBSTR) looking to offer automated savings products to their user base.
+1. **Deposit**: Liquidity providers deposit assets (XLM, USDC, AQUA) into audited Soroban vaults.
+2. **AMM Trading**: Traders swap tokens via the constant-product AMM pool, paying a 0.30% liquidity fee.
+3. **Auto-Compounding**: Decentralized keeper bots trigger 15-minute harvest loops, auto-reinvesting fees into the vault pool.
+4. **Appreciation & Redemption**: Staker vault shares grow continuously in underlying asset value and can be redeemed instantly with zero lockups.
 
 ---
 
 ## 🚀 Key Features
 
-### 1. 🌾 Automated Yield Strategy Vaults
-* **XLM / USDC Auto-Compounding Vault**: Captures high-frequency remittance volume on Stellar's largest trading pair.
-* **XLM / AQUA Liquidity Maximizer**: Optimized for ecosystem governance and liquidity reward capture.
-* **USDC Stable Yield Vault**: Single-sided stablecoin yield optimization for risk-averse depositors.
+* **🌾 Automated Yield Strategy Vaults**: Multi-tier vaults (XLM/USDC, XLM/AQUA, USDC Stable) with auto-rebalancing.
+* **💱 Constant-Product DEX Swap**: Low-slippage token exchange ($x \cdot y = k$) with bundled trustline management.
+* **🤖 Autonomous Keeper Network**: 15-minute compounding cycles incentivized by an autonomous 1.0% keeper bounty.
+* **🛡️ Base Reserve Guard & Emergency Exit**: Native XLM reserve balance protection to prevent `tx_insufficient_balance` errors, accompanied by a 1-click instant emergency withdrawal safeguard.
+* **📊 Live Telemetry & On-Chain Proofs**: Real-time RPC telemetry with clickable verification links to StellarExpert.
 
-### 2. 💱 Instant Token Exchange (DEX Swap)
-* **Constant-Product AMM Pricing**: Swaps executed against on-chain liquidity using $x \cdot y = k$ invariant pricing.
-* **Dynamic Slippage Protection**: User-configurable slippage tolerance (0.1%, 0.5%, 1.0%).
-* **0.30% Fee Capture**: Every swap pays a 0.30% trading fee that feeds directly into the vault pool for stakers.
-* **Bundled Trustline Execution**: Automatically checks and establishes asset trustlines in the same transaction.
+---
 
-### 3. 🤖 Decentralized Keeper Auto-Compounder
-* **15-Minute Automated Cycles**: Continuous background compounding runs 24/7.
-* **1% Bounty Incentive**: Anyone can trigger a compound cycle through the web terminal or CLI and claim the 1% bounty.
-* **Exponential Compounding Curve**: Yield is continuously reinvested into vault principal, compounding returns 35,040 times per year.
+## 🖼️ User Interface & Dashboard Showcase
 
-### 4. 🛡️ Non-Custodial Security & Base Reserve Protection
-* **Base Reserve Protection Guard**: Automatically calculates minimum reserve requirements:
-  $$\text{Reserve} = (2 + \text{subentries}) \times 0.5\text{ XLM} + 0.1\text{ XLM gas safety buffer}$$
-  Prevents accounts from hitting `tx_insufficient_balance` errors during transactions.
-* **1-Click Instant Emergency Exit**: Burns vault shares and returns 100% of underlying principal immediately with zero lockup periods.
+### 🖥️ Desktop UI & Vault Strategy Explorer
+Full institutional desktop experience showcasing dynamic TVL tracking, APY calculations, and 1-click vault deposits.
 
-### 5. 📊 Real-Time Telemetry & On-Chain Proofs
-* **Zero-Mock Data**: Real staker counts, ledger numbers, and TVL queried from Stellar Horizon and Soroban RPC.
-* **On-Chain Proof Explorer**: Every deposit, swap, withdrawal, and compound cycle generates a cryptographic proof with a direct link to StellarExpert.
+![Lumex Protocol Desktop UI](public/screenshots/desktop-ui.png)
+
+---
+
+### 📱 Mobile UI & Responsive Experience
+Fully touch-optimized mobile layout with adaptive card reflow, sticky actions, and zero-install 1-Click Sandbox onboarding.
+
+![Lumex Protocol Mobile UI](public/screenshots/mobile-ui.png)
+
+---
+
+### 📈 Real-Time Telemetry, Analytics & Health Monitoring
+Live monitoring dashboard tracking Soroban contract ledger numbers, staker counts, automated keeper execution status, and protocol health telemetry.
+
+![Lumex Protocol Analytics Dashboard](public/screenshots/analytics-dashboard.png)
 
 ---
 
 ## 📐 Mathematical Formulation
 
 ### 1. Proportional Share Minting ($S_{\text{mint}}$)
-When a user deposits $D_{\text{in}}$ into a vault pool:
 $$S_{\text{mint}} = \begin{cases} D_{\text{in}} & \text{if } S_{\text{total}} = 0 \text{ or } D_{\text{total}} = 0 \\ \left\lfloor \frac{D_{\text{in}} \cdot S_{\text{total}}}{D_{\text{total}} + Y_{\text{accumulated}}} \right\rfloor & \text{otherwise} \end{cases}$$
 
 ### 2. Proportional Share Redemption ($P_{\text{out}}$)
-When a user burns $S_{\text{burn}}$ vault shares:
 $$P_{\text{out}} = \left\lfloor \frac{S_{\text{burn}} \cdot (D_{\text{total}} + Y_{\text{accumulated}})}{S_{\text{total}}} \right\rfloor$$
 
-### 3. Compounded APY Model ($\text{APY}_{\text{net}}$)
+### 3. Net Compounded APY ($\text{APY}_{\text{net}}$)
 $$\text{APY}_{\text{base}} = \frac{\text{Daily Fee Volume} \times 365 \times 0.003}{\text{Total Value Locked (TVL)}} \times 100$$
 $$\text{APY}_{\text{compounded}} = \left( \left( 1 + \frac{\text{APY}_{\text{base}}}{n} \right)^n - 1 \right) \times 100 \quad \text{where } n = 35{,}040 \text{ (15-minute cycles)}$$
 
@@ -155,18 +136,25 @@ $$\text{APY}_{\text{compounded}} = \left( \left( 1 + \frac{\text{APY}_{\text{bas
 | **Frontend Framework** | React 18, TypeScript, Vite 6, Tailwind CSS |
 | **Stellar Web3 SDKs** | `@stellar/stellar-sdk` `v13.1.0`, `@stellar/freighter-api` `v3.1.0` |
 | **Blockchain Infrastructure** | Stellar Horizon REST API, Soroban JSON-RPC Gateway |
-| **Icons & Design System** | Lucide React, Glassmorphism, Responsive CSS3 Grid |
-| **Deployment & CI/CD** | Vercel Global Edge CDN, GitHub Actions CI Pipeline |
+| **Design & Telemetry** | Lucide React, Glassmorphism UI, Google Apps Script Telemetry Webhook |
+| **Hosting & CI/CD** | Vercel Global Edge CDN, GitHub Actions CI Pipeline |
+
+---
+
+## 💬 User Feedback & Usability Summary
+
+Feedback is gathered continuously via the in-app **Developer Dispatch & Feedback Modal** (routed in real time to our Google Sheets webhook) and on-chain telemetry. 
+
+During testnet beta testing, user submissions highlighted key UX friction points which were actively engineered into protocol improvements:
+
+* **Wallet Connection Friction**: Evaluators without Freighter extension experienced difficulty onboarding $\rightarrow$ *Resolved by introducing the **1-Click Sandbox Account** for instantaneous zero-install testing.*
+* **Testnet Slippage & Liquidity Feedback**: Users reported failed swaps during sudden volatility on small testnet pools $\rightarrow$ *Resolved by integrating dynamic **Slippage Tolerance & Price Impact Guards**.*
+* **Yield Breakdown Clarity**: Users requested transparency on where APY originated $\rightarrow$ *Resolved by separating base **0.30% AMM LP fees** from the **auto-compounding frequency multiplier**.*
+* **Mobile Viewport Optimization**: Testers noted table density on small phone screens $\rightarrow$ *Resolved by refactoring all views into touch-friendly adaptive cards.*
 
 ---
 
 ## 💻 Local Setup & Development
-
-### Prerequisites
-* **Node.js**: v18.0.0 or higher
-* **npm**: v9.0.0 or higher
-* **Freighter Wallet Extension**: [https://www.freighter.app](https://www.freighter.app) (Set to Testnet)
-* **Rust Toolchain (Optional, for contract development)**: `rustup target add wasm32-unknown-unknown`
 
 ### 1. Clone the Repository
 ```bash
@@ -183,24 +171,22 @@ npm install
 Create a `.env` file in the root directory:
 ```env
 VITE_STELLAR_NETWORK=testnet
-VITE_STELLAR_NETWORK_PASSPHRASE=Test SDF Network ; September 2015
 VITE_HORIZON_URL=https://horizon-testnet.stellar.org
 VITE_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 VITE_CONTRACT_ID=CDKV6FUDD53DMLVJTDB2POXG4RNIYR5ZRPJH3VEOUI2CRNJY7CBQZB2N
 VITE_EXPLORER_BASE_URL=https://stellar.expert/explorer/testnet
 VITE_ADMIN_PUBLIC_KEY=GA5C5RH4LB6U7JI3INRG6FMMJXIQOBCQKTAKIVG3IR4OWTKG7UGSYUY6
 VITE_ADMIN_SECRET_KEY=SDCIPLIVMDV25SYNGCW64AMRKVZGU4G77337BUSATABXHYK3XOI7JT2G
+VITE_GOOGLE_FEEDBACK_WEBHOOK_URL=https://script.google.com/macros/s/AKfycbzwUIYdN4IiovLuNuBJfcvrSyd2ffo4g1odhDU8xhsZWUvI6TezyMutuebEFafXlPRMrA/exec
 ```
 
-### 4. Start Development Server
+### 4. Run Locally
 ```bash
 npm run dev
 ```
-Open [http://localhost:6789](http://localhost:6789) in your browser.
 
-### 5. Run Type Checks & Production Build
+### 5. Build for Production
 ```bash
-npx tsc --noEmit
 npm run build
 ```
 
