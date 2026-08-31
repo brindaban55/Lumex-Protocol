@@ -31,13 +31,22 @@ export const UserFeedbackModal: React.FC<UserFeedbackModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackText.trim()) return;
 
     setIsSubmitting(true);
 
-    // Record telemetry event
+    const feedbackPayload = {
+      category,
+      message: feedbackText,
+      feedback: feedbackText,
+      contact: contactInfo || 'N/A',
+      userAddress: userAddress || 'Anonymous',
+      timestamp: new Date().toISOString(),
+    };
+
+    // 1. Record telemetry event
     trackEvent('developer_feedback_dispatched', {
       category,
       length: feedbackText.length,
@@ -45,26 +54,38 @@ export const UserFeedbackModal: React.FC<UserFeedbackModalProps> = ({
       contactProvided: !!contactInfo,
     });
 
-    // Save to local developer telemetry log
+    // 2. Save to local developer telemetry log
     try {
       const existing = JSON.parse(localStorage.getItem('lumex_dev_feedback') || '[]');
-      existing.push({
-        category,
-        feedback: feedbackText,
-        contact: contactInfo,
-        userAddress,
-        timestamp: new Date().toISOString(),
-      });
+      existing.push(feedbackPayload);
       localStorage.setItem('lumex_dev_feedback', JSON.stringify(existing));
     } catch (err) {
       console.error(err);
     }
 
+    // 3. Dispatch to Google Sheets / Google Apps Script Webhook (if configured)
+    const googleWebhookUrl = import.meta.env.VITE_GOOGLE_FEEDBACK_WEBHOOK_URL;
+    if (googleWebhookUrl) {
+      try {
+        await fetch(googleWebhookUrl, {
+          method: 'POST',
+          mode: 'no-cors', // Google Apps Script Web Apps require no-cors or redirect handling
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(feedbackPayload),
+        });
+      } catch (webhookErr) {
+        console.warn('[Feedback Webhook] Google Sheets dispatch error:', webhookErr);
+      }
+    }
+
     setTimeout(() => {
       setIsSubmitting(false);
       setSubmitted(true);
-    }, 600);
+    }, 400);
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in">

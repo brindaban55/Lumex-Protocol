@@ -147,8 +147,15 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
         {/* Success View */}
         {txHash ? (
           <div className="text-center py-6 space-y-4 animate-in zoom-in-95">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-primary/20 border border-primary flex items-center justify-center text-primary shadow-glow-primary">
-              <CheckCircle2 className="w-8 h-8" />
+            <div className="w-20 h-20 mx-auto rounded-2xl p-1 flex items-center justify-center">
+              <img
+                src="/images/emergency-shield-3d.png"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/images/emergency-shield-3d.svg';
+                }}
+                alt="Security Shield"
+                className="w-full h-full object-contain filter drop-shadow-[0_8px_20px_rgba(0,229,153,0.4)]"
+              />
             </div>
             <div>
               <h4 className="text-xl font-bold text-white">
@@ -158,6 +165,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
                 Your redeemed funds have been transferred directly to your connected wallet.
               </p>
             </div>
+
 
             <div className="p-3 bg-surface-light rounded-xl border border-surface-border text-left space-y-1 text-xs">
               <div className="text-slate-400">Transaction Hash:</div>

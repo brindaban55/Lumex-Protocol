@@ -40,16 +40,32 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
   return (
     <section className="py-8">
       <div className="layout-container">
-        {/* Section Header */}
-        <div className="border-b border-white/[0.08] pb-6 mb-8">
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white">My Staked Positions & Portfolio</h2>
-          <p className="mt-1 text-sm text-slate-400">
-            Real-time Soroban smart contract yield positions and earned share growth.
-          </p>
+        {/* Section Header with 3D Graphic */}
+        <div className="glass-panel-card rounded-3xl p-6 sm:p-8 mb-8 border border-white/[0.08] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="relative z-10 max-w-xl">
+            <span className="rounded-full bg-[#00E599]/15 px-3 py-1 text-xs font-bold text-[#00E599] border border-[#00E599]/30 inline-block mb-3">
+              Institutional Portfolio Management
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">My Staked Positions & Portfolio</h2>
+            <p className="mt-2 text-sm text-slate-300">
+              Real-time Soroban smart contract yield positions, proportional share appreciation, and continuous 15-minute DEX fee compounding.
+            </p>
+          </div>
+          <div className="w-40 sm:w-48 h-32 sm:h-36 relative shrink-0">
+            <img
+              src="/images/yield-growth-3d.png"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/images/hero-vault-3d.svg';
+              }}
+              alt="Exponential Yield Growth 3D"
+              className="w-full h-full object-contain filter drop-shadow-[0_10px_25px_rgba(0,229,153,0.35)] hover:scale-105 transition-transform duration-300"
+            />
+          </div>
         </div>
 
         {/* Portfolio Summary Bar */}
         <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-5">
+
           <div className="glass-panel-card rounded-2xl p-6">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Portfolio Value</span>
             <div className="mt-2 font-mono text-2xl sm:text-3xl font-extrabold text-white">
