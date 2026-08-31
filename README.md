@@ -1,6 +1,9 @@
 # Lumex Protocol — Automated Yield Optimizer & Liquidity Vaults on Stellar
 
-[![Live dApp](https://img.shields.io/badge/Live%20dApp-lumex--protocol.vercel.app-00E599?style=for-the-badge&logo=vercel)](https://lumex-protocol.vercel.app)
+> 🚀 **Live Production dApp**: [https://lumex-protocol.vercel.app/](https://lumex-protocol.vercel.app/)  
+> 🎥 **YouTube Video Walkthrough & Demo**: [https://www.youtube.com/watch?v=Gtv7e0MHRFw](https://www.youtube.com/watch?v=Gtv7e0MHRFw)
+
+[![Live dApp](https://img.shields.io/badge/Live%20dApp-lumex--protocol.vercel.app-00E599?style=for-the-badge&logo=vercel)](https://lumex-protocol.vercel.app/)
 [![YouTube Demo](https://img.shields.io/badge/YouTube-Video%20Demo-FF0000?style=for-the-badge&logo=youtube)](https://www.youtube.com/watch?v=Gtv7e0MHRFw)
 [![Stellar Protocol](https://img.shields.io/badge/Stellar-Protocol%2022%2F27-00E599?style=for-the-badge&logo=stellar)](https://developers.stellar.org)
 [![Soroban Smart Contract](https://img.shields.io/badge/Soroban-Rust%20WASM-7E57C2?style=for-the-badge&logo=rust)](https://soroban.stellar.org)
@@ -12,8 +15,8 @@
 
 | Resource | Link / Identifier |
 | :--- | :--- |
+| **Live Deployed Application** | [https://lumex-protocol.vercel.app/](https://lumex-protocol.vercel.app/) |
 | **YouTube Video Demo** | [https://www.youtube.com/watch?v=Gtv7e0MHRFw](https://www.youtube.com/watch?v=Gtv7e0MHRFw) |
-| **Live Production dApp** | [https://lumex-protocol.vercel.app](https://lumex-protocol.vercel.app) |
 | **GitHub Repository** | [https://github.com/brindaban55/Lumex-Protocol](https://github.com/brindaban55/Lumex-Protocol) |
 | **Deployed Soroban Contract ID** | [`CDKV6FUDD53DMLVJTDB2POXG4RNIYR5ZRPJH3VEOUI2CRNJY7CBQZB2N`](https://stellar.expert/explorer/testnet/contract/CDKV6FUDD53DMLVJTDB2POXG4RNIYR5ZRPJH3VEOUI2CRNJY7CBQZB2N) |
 | **Protocol Admin & Keeper Address** | [`GA5C5RH4LB6U7JI3INRG6FMMJXIQOBCQKTAKIVG3IR4OWTKG7UGSYUY6`](https://stellar.expert/explorer/testnet/account/GA5C5RH4LB6U7JI3INRG6FMMJXIQOBCQKTAKIVG3IR4OWTKG7UGSYUY6) |
@@ -21,6 +24,7 @@
 | **Testnet USDC Asset Issuer** | [`GBBPUNXTOJSINRNS7LRYX6K5SDQ2W3RV6MEE3CMN34XD5TSCUTPNAPLP`](https://stellar.expert/explorer/testnet/account/GBBPUNXTOJSINRNS7LRYX6K5SDQ2W3RV6MEE3CMN34XD5TSCUTPNAPLP) |
 | **Testnet AQUA Asset Issuer** | [`GBBPUNXTOJSINRNS7LRYX6K5SDQ2W3RV6MEE3CMN34XD5TSCUTPNAPLP`](https://stellar.expert/explorer/testnet/account/GBBPUNXTOJSINRNS7LRYX6K5SDQ2W3RV6MEE3CMN34XD5TSCUTPNAPLP) |
 | **Network** | Stellar Testnet (`Test SDF Network ; September 2015`) |
+
 
 ---
 
