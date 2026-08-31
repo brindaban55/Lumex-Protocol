@@ -73,7 +73,7 @@ export const TESTNET_TOKENS = {
     name: 'USD Coin',
     decimals: 7,
     isNative: false,
-    issuer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+    issuer: 'GBBPUNXTOJSINRNS7LRYX6K5SDQ2W3RV6MEE3CMN34XD5TSCUTPNAPLP',
     contractId: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWUIPWNL2PBJKS2CGMN',
     icon: '/images/tokens/usdc.svg',
   },
@@ -82,11 +82,12 @@ export const TESTNET_TOKENS = {
     name: 'Aquarius Token',
     decimals: 7,
     isNative: false,
-    issuer: 'GBNZILSTVQZ4R7IKDGDGGCGY2OK2KVGVI65OKKNEISJ74OXOGVU4DEXA',
+    issuer: 'GBBPUNXTOJSINRNS7LRYX6K5SDQ2W3RV6MEE3CMN34XD5TSCUTPNAPLP',
     contractId: 'CA3D5KRYMCMIO7WXRX2WNTVXMQHIC7NQNNZTNFIUGL7YBM2W7XOJ4GLU',
     icon: '/images/tokens/aqua.svg',
   },
 };
+
 
 /**
  * Initial Vault Pools configurations harvested from Stellar DEX AMM Pools.
