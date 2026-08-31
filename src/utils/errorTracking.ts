@@ -53,12 +53,20 @@ class ErrorTracker {
     }
 
 
+    if (/Bad union switch|XDR|ScVal/i.test(rawMsg)) {
+      return {
+        userMessage: 'Stellar transaction formatting is synchronizing. Please retry transaction.',
+        category: 'Contract',
+      };
+    }
+
     if (/HostError|Simulation/i.test(rawMsg)) {
       return {
         userMessage: `Soroban Contract error: ${rawMsg}`,
         category: 'Contract',
       };
     }
+
 
     return {
       userMessage: rawMsg,

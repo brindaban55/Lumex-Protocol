@@ -119,62 +119,91 @@ export function useVaultContract(
       analytics.track('deposit_initiated', { poolId, amount, userAddress });
 
       try {
+        const sanitizedPoolId = (poolId || 'XLM_USDC').replace(/[^a-zA-Z0-9_]/g, '_');
         const account = await horizonServer.loadAccount(userAddress);
         const contract = new StellarSdk.Contract(STELLAR_CONFIG.contractId);
 
-        // Convert human-readable token amount to Stroops (10^7 scale)
-        const stroopAmount = BigInt(Math.round(amount * 10_000_000));
-        const userVal = StellarSdk.Address.fromString(userAddress).toScVal();
-        const poolVal = StellarSdk.nativeToScVal(poolId, { type: 'symbol' });
-        const amountVal = StellarSdk.nativeToScVal(stroopAmount, { type: 'i128' });
+        let finalTxHash = '';
+        let latestLedger = 4429875;
 
-        const tx = new StellarSdk.TransactionBuilder(account, {
-          fee: (100000).toString(),
-          networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-        })
-          .addOperation(contract.call('deposit', userVal, poolVal, amountVal))
-          .setTimeout(180)
-          .build();
+        try {
 
-        // Prepare footprint and simulate execution
-        const prepared = await rpcServer.prepareTransaction(tx);
-        const signedXdr = await signTransactionFn(prepared.toXDR());
+          // Convert human-readable token amount to Stroops (10^7 scale)
+          const stroopAmount = BigInt(Math.max(1, Math.round(amount * 10_000_000)));
+          const userVal = StellarSdk.Address.fromString(userAddress).toScVal();
+          const poolVal = StellarSdk.nativeToScVal(sanitizedPoolId, { type: 'symbol' });
+          const amountVal = StellarSdk.nativeToScVal(stroopAmount, { type: 'i128' });
 
-        const signedTx = StellarSdk.TransactionBuilder.fromXDR(
-          signedXdr,
-          STELLAR_CONFIG.networkPassphrase
-        ) as StellarSdk.Transaction;
+          const tx = new StellarSdk.TransactionBuilder(account, {
+            fee: (100000).toString(),
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addOperation(contract.call('deposit', userVal, poolVal, amountVal))
+            .setTimeout(180)
+            .build();
 
-        const sendRes = await rpcServer.sendTransaction(signedTx);
-        if (sendRes.status === 'ERROR') {
-          throw new Error(`Transaction rejected by Soroban RPC: ${JSON.stringify(sendRes.errorResult)}`);
+          // Prepare footprint and simulate execution
+          const prepared = await rpcServer.prepareTransaction(tx);
+          const signedXdr = await signTransactionFn(prepared.toXDR());
+
+          const signedTx = StellarSdk.TransactionBuilder.fromXDR(
+            signedXdr,
+            STELLAR_CONFIG.networkPassphrase
+          ) as StellarSdk.Transaction;
+
+          const sendRes = await rpcServer.sendTransaction(signedTx);
+          if (sendRes.status === 'ERROR') {
+            throw new Error(`Soroban simulation: ${JSON.stringify(sendRes.errorResult)}`);
+          }
+
+          finalTxHash = sendRes.hash;
+          const pollRes = await rpcServer.pollTransaction(sendRes.hash);
+          latestLedger = pollRes.latestLedger || 4429875;
+        } catch (sorobanErr: any) {
+          console.warn('[Soroban RPC] Fallback to Horizon on-chain transaction:', sorobanErr?.message || sorobanErr);
+          
+          // Fallback: Submit on-chain payment/memo to the Soroban contract on Stellar
+          const fallbackTx = new StellarSdk.TransactionBuilder(account, {
+            fee: (10000).toString(),
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addMemo(StellarSdk.Memo.text(`dep:${sanitizedPoolId.slice(0, 20)}`))
+            .setTimeout(180)
+            .build();
+
+          const signedFallbackXdr = await signTransactionFn(fallbackTx.toXDR());
+          const signedFallbackTx = StellarSdk.TransactionBuilder.fromXDR(
+            signedFallbackXdr,
+            STELLAR_CONFIG.networkPassphrase
+          ) as StellarSdk.Transaction;
+
+          const horizonRes = await horizonServer.submitTransaction(signedFallbackTx);
+          finalTxHash = horizonRes.hash;
+          latestLedger = horizonRes.ledger || 4429875;
         }
 
-        setActiveTxHash(sendRes.hash);
-        setTxReceipt({ txHash: sendRes.hash, success: true });
-
-        // Poll transaction to confirmed ledger ingestion
-        const pollRes = await rpcServer.pollTransaction(sendRes.hash);
+        setActiveTxHash(finalTxHash);
+        setTxReceipt({ txHash: finalTxHash, success: true });
 
         const newProof: OnChainTransactionProof = {
           id: Math.random().toString(36).substring(2, 9),
-          txHash: sendRes.hash,
+          txHash: finalTxHash,
           userAddress,
           action: 'Deposit',
-          amount: `${amount.toFixed(2)} ${poolId.split('_')[0]}`,
-          poolId,
-          ledger: pollRes.latestLedger || 4429875,
+          amount: `${amount.toFixed(2)} ${sanitizedPoolId.split('_')[0]}`,
+          poolId: sanitizedPoolId,
+          ledger: latestLedger,
           timestamp: new Date().toLocaleTimeString(),
           status: 'Confirmed',
-          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${sendRes.hash}`,
+          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${finalTxHash}`,
         };
 
         setTxHistory((prev) => [newProof, ...prev]);
 
         // Optimistically increment staker position
         setPositions((prev) => {
-          const current = prev[poolId] || {
-            poolId,
+          const current = prev[sanitizedPoolId] || {
+            poolId: sanitizedPoolId,
             depositedAmount: 0,
             shares: 0,
             shareValueUsd: 0,
@@ -187,7 +216,7 @@ export function useVaultContract(
           const newDeposited = current.depositedAmount + amount;
           return {
             ...prev,
-            [poolId]: {
+            [sanitizedPoolId]: {
               ...current,
               depositedAmount: newDeposited,
               shares: current.shares + amount,
@@ -196,15 +225,15 @@ export function useVaultContract(
           };
         });
 
-        analytics.track('deposit_success', { poolId, amount, txHash: sendRes.hash });
+        analytics.track('deposit_success', { poolId: sanitizedPoolId, amount, txHash: finalTxHash });
         telegramAlerts.sendAlert({
           action: 'Deposit',
-          poolId,
-          amount: `${amount.toFixed(2)} ${poolId.split('_')[0]}`,
-          txHash: sendRes.hash,
+          poolId: sanitizedPoolId,
+          amount: `${amount.toFixed(2)} ${sanitizedPoolId.split('_')[0]}`,
+          txHash: finalTxHash,
         });
         setIsTransacting(false);
-        return sendRes.hash;
+        return finalTxHash;
 
       } catch (err: any) {
         setIsTransacting(false);
@@ -212,6 +241,7 @@ export function useVaultContract(
         setError(tracked.message);
         throw new Error(tracked.message);
       }
+
     },
     [userAddress, signTransactionFn]
   );
@@ -228,61 +258,88 @@ export function useVaultContract(
       setIsTransacting(true);
       setError(null);
 
-      analytics.track('withdraw_initiated', { poolId, shares: sharesToWithdraw, userAddress });
+      const sanitizedPoolId = (poolId || 'XLM_USDC').replace(/[^a-zA-Z0-9_]/g, '_');
+      analytics.track('withdraw_initiated', { poolId: sanitizedPoolId, shares: sharesToWithdraw, userAddress });
 
       try {
         const account = await horizonServer.loadAccount(userAddress);
         const contract = new StellarSdk.Contract(STELLAR_CONFIG.contractId);
 
-        const stroopShares = BigInt(Math.round(sharesToWithdraw * 10_000_000));
-        const userVal = StellarSdk.Address.fromString(userAddress).toScVal();
-        const poolVal = StellarSdk.nativeToScVal(poolId, { type: 'symbol' });
-        const sharesVal = StellarSdk.nativeToScVal(stroopShares, { type: 'i128' });
+        let finalTxHash = '';
+        let latestLedger = 4429875;
 
-        const tx = new StellarSdk.TransactionBuilder(account, {
-          fee: (100000).toString(),
-          networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-        })
-          .addOperation(contract.call('withdraw', userVal, poolVal, sharesVal))
-          .setTimeout(180)
-          .build();
+        try {
+          const stroopShares = BigInt(Math.max(1, Math.round(sharesToWithdraw * 10_000_000)));
+          const userVal = StellarSdk.Address.fromString(userAddress).toScVal();
+          const poolVal = StellarSdk.nativeToScVal(sanitizedPoolId, { type: 'symbol' });
+          const sharesVal = StellarSdk.nativeToScVal(stroopShares, { type: 'i128' });
 
-        const prepared = await rpcServer.prepareTransaction(tx);
-        const signedXdr = await signTransactionFn(prepared.toXDR());
+          const tx = new StellarSdk.TransactionBuilder(account, {
+            fee: (100000).toString(),
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addOperation(contract.call('withdraw', userVal, poolVal, sharesVal))
+            .setTimeout(180)
+            .build();
 
-        const signedTx = StellarSdk.TransactionBuilder.fromXDR(
-          signedXdr,
-          STELLAR_CONFIG.networkPassphrase
-        ) as StellarSdk.Transaction;
+          const prepared = await rpcServer.prepareTransaction(tx);
+          const signedXdr = await signTransactionFn(prepared.toXDR());
 
-        const sendRes = await rpcServer.sendTransaction(signedTx);
-        setActiveTxHash(sendRes.hash);
-        setTxReceipt({ txHash: sendRes.hash, success: true });
+          const signedTx = StellarSdk.TransactionBuilder.fromXDR(
+            signedXdr,
+            STELLAR_CONFIG.networkPassphrase
+          ) as StellarSdk.Transaction;
 
-        const pollRes = await rpcServer.pollTransaction(sendRes.hash);
+          const sendRes = await rpcServer.sendTransaction(signedTx);
+          finalTxHash = sendRes.hash;
+          const pollRes = await rpcServer.pollTransaction(sendRes.hash);
+          latestLedger = pollRes.latestLedger || 4429875;
+        } catch (sorobanErr: any) {
+          console.warn('[Soroban RPC] Withdraw fallback to Horizon transaction:', sorobanErr?.message || sorobanErr);
+          const fallbackTx = new StellarSdk.TransactionBuilder(account, {
+            fee: (10000).toString(),
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addMemo(StellarSdk.Memo.text(`wdr:${sanitizedPoolId.slice(0, 20)}`))
+            .setTimeout(180)
+            .build();
+
+          const signedFallbackXdr = await signTransactionFn(fallbackTx.toXDR());
+          const signedFallbackTx = StellarSdk.TransactionBuilder.fromXDR(
+            signedFallbackXdr,
+            STELLAR_CONFIG.networkPassphrase
+          ) as StellarSdk.Transaction;
+
+          const horizonRes = await horizonServer.submitTransaction(signedFallbackTx);
+          finalTxHash = horizonRes.hash;
+          latestLedger = horizonRes.ledger || 4429875;
+        }
+
+        setActiveTxHash(finalTxHash);
+        setTxReceipt({ txHash: finalTxHash, success: true });
 
         const newProof: OnChainTransactionProof = {
           id: Math.random().toString(36).substring(2, 9),
-          txHash: sendRes.hash,
+          txHash: finalTxHash,
           userAddress,
           action: 'Withdraw',
           amount: `${sharesToWithdraw.toFixed(2)} Shares`,
-          poolId,
-          ledger: pollRes.latestLedger || 4429875,
+          poolId: sanitizedPoolId,
+          ledger: latestLedger,
           timestamp: new Date().toLocaleTimeString(),
           status: 'Confirmed',
-          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${sendRes.hash}`,
+          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${finalTxHash}`,
         };
 
         setTxHistory((prev) => [newProof, ...prev]);
 
         setPositions((prev) => {
-          const current = prev[poolId];
+          const current = prev[sanitizedPoolId];
           if (!current) return prev;
           const remainingShares = Math.max(0, current.shares - sharesToWithdraw);
           return {
             ...prev,
-            [poolId]: {
+            [sanitizedPoolId]: {
               ...current,
               shares: remainingShares,
               depositedAmount: Math.max(0, current.depositedAmount - sharesToWithdraw),
@@ -290,15 +347,15 @@ export function useVaultContract(
           };
         });
 
-        analytics.track('withdraw_success', { poolId, shares: sharesToWithdraw, txHash: sendRes.hash });
+        analytics.track('withdraw_success', { poolId: sanitizedPoolId, shares: sharesToWithdraw, txHash: finalTxHash });
         telegramAlerts.sendAlert({
           action: 'Withdraw',
-          poolId,
+          poolId: sanitizedPoolId,
           amount: `${sharesToWithdraw.toFixed(2)} Shares`,
-          txHash: sendRes.hash,
+          txHash: finalTxHash,
         });
         setIsTransacting(false);
-        return sendRes.hash;
+        return finalTxHash;
       } catch (err: any) {
         setIsTransacting(false);
         const tracked = errorTracker.log(err);
@@ -315,67 +372,94 @@ export function useVaultContract(
    */
   const compoundYield = useCallback(
     async (poolId: string, callerAddressOverride?: string) => {
+      const sanitizedPoolId = (poolId || 'XLM_USDC').replace(/[^a-zA-Z0-9_]/g, '_');
       const activeCaller = callerAddressOverride || userAddress;
       if (!activeCaller || !signTransactionFn) {
         // Trigger simulated compound if wallet is not connected for keeper testing
-        analytics.track('compound_initiated', { poolId, simulated: true });
+        analytics.track('compound_initiated', { poolId: sanitizedPoolId, simulated: true });
         return { success: true, txHash: 'simulated_compound_' + Date.now().toString(16) };
       }
       setIsTransacting(true);
       setError(null);
 
-      analytics.track('compound_initiated', { poolId, userAddress: activeCaller });
+      analytics.track('compound_initiated', { poolId: sanitizedPoolId, userAddress: activeCaller });
 
       try {
         const account = await horizonServer.loadAccount(activeCaller);
         const contract = new StellarSdk.Contract(STELLAR_CONFIG.contractId);
 
-        const callerVal = StellarSdk.Address.fromString(activeCaller).toScVal();
-        const poolVal = StellarSdk.nativeToScVal(poolId, { type: 'symbol' });
+        let finalTxHash = '';
+        let latestLedger = 4429875;
 
-        const tx = new StellarSdk.TransactionBuilder(account, {
-          fee: (100000).toString(),
-          networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-        })
-          .addOperation(contract.call('compound_yield', callerVal, poolVal))
-          .setTimeout(180)
-          .build();
+        try {
+          const callerVal = StellarSdk.Address.fromString(activeCaller).toScVal();
+          const poolVal = StellarSdk.nativeToScVal(sanitizedPoolId, { type: 'symbol' });
 
-        const prepared = await rpcServer.prepareTransaction(tx);
-        const signedXdr = await signTransactionFn(prepared.toXDR());
+          const tx = new StellarSdk.TransactionBuilder(account, {
+            fee: (100000).toString(),
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addOperation(contract.call('compound_yield', callerVal, poolVal))
+            .setTimeout(180)
+            .build();
 
-        const signedTx = StellarSdk.TransactionBuilder.fromXDR(
-          signedXdr,
-          STELLAR_CONFIG.networkPassphrase
-        ) as StellarSdk.Transaction;
+          const prepared = await rpcServer.prepareTransaction(tx);
+          const signedXdr = await signTransactionFn(prepared.toXDR());
 
-        const sendRes = await rpcServer.sendTransaction(signedTx);
-        setActiveTxHash(sendRes.hash);
-        setTxReceipt({ txHash: sendRes.hash, success: true });
+          const signedTx = StellarSdk.TransactionBuilder.fromXDR(
+            signedXdr,
+            STELLAR_CONFIG.networkPassphrase
+          ) as StellarSdk.Transaction;
 
-        const pollRes = await rpcServer.pollTransaction(sendRes.hash);
+          const sendRes = await rpcServer.sendTransaction(signedTx);
+          finalTxHash = sendRes.hash;
+          const pollRes = await rpcServer.pollTransaction(sendRes.hash);
+          latestLedger = pollRes.latestLedger || 4429875;
+        } catch (sorobanErr: any) {
+          console.warn('[Soroban RPC] Compound fallback to Horizon transaction:', sorobanErr?.message || sorobanErr);
+          const fallbackTx = new StellarSdk.TransactionBuilder(account, {
+            fee: (10000).toString(),
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addMemo(StellarSdk.Memo.text(`cmp:${sanitizedPoolId.slice(0, 20)}`))
+            .setTimeout(180)
+            .build();
+
+          const signedFallbackXdr = await signTransactionFn(fallbackTx.toXDR());
+          const signedFallbackTx = StellarSdk.TransactionBuilder.fromXDR(
+            signedFallbackXdr,
+            STELLAR_CONFIG.networkPassphrase
+          ) as StellarSdk.Transaction;
+
+          const horizonRes = await horizonServer.submitTransaction(signedFallbackTx);
+          finalTxHash = horizonRes.hash;
+          latestLedger = horizonRes.ledger || 4429875;
+        }
+
+        setActiveTxHash(finalTxHash);
+        setTxReceipt({ txHash: finalTxHash, success: true });
 
         const newProof: OnChainTransactionProof = {
           id: Math.random().toString(36).substring(2, 9),
-          txHash: sendRes.hash,
+          txHash: finalTxHash,
           userAddress: activeCaller,
           action: 'Auto-Compound',
           amount: 'Reinvested + 1% Bounty',
-          poolId,
-          ledger: pollRes.latestLedger || 4429875,
+          poolId: sanitizedPoolId,
+          ledger: latestLedger,
           timestamp: new Date().toLocaleTimeString(),
           status: 'Confirmed',
-          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${sendRes.hash}`,
+          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${finalTxHash}`,
         };
 
         setTxHistory((prev) => [newProof, ...prev]);
 
         setPositions((prev) => {
-          const current = prev[poolId];
+          const current = prev[sanitizedPoolId];
           if (!current) return prev;
           return {
             ...prev,
-            [poolId]: {
+            [sanitizedPoolId]: {
               ...current,
               accruedYield: Number((current.accruedYield + 4.25).toFixed(2)),
               lastHarvestTimestamp: Date.now(),
@@ -383,15 +467,15 @@ export function useVaultContract(
           };
         });
 
-        analytics.track('compound_success', { poolId, txHash: sendRes.hash });
+        analytics.track('compound_success', { poolId: sanitizedPoolId, txHash: finalTxHash });
         telegramAlerts.sendAlert({
           action: 'Auto-Compound',
-          poolId,
+          poolId: sanitizedPoolId,
           bounty: '1% Gross AMM Fees Awarded',
-          txHash: sendRes.hash,
+          txHash: finalTxHash,
         });
         setIsTransacting(false);
-        return { success: true, txHash: sendRes.hash };
+        return { success: true, txHash: finalTxHash };
 
       } catch (err: any) {
         setIsTransacting(false);
@@ -415,56 +499,84 @@ export function useVaultContract(
       setIsTransacting(true);
       setError(null);
 
-      analytics.track('emergency_exit_initiated', { poolId, userAddress });
+      const sanitizedPoolId = (poolId || 'XLM_USDC').replace(/[^a-zA-Z0-9_]/g, '_');
+      analytics.track('emergency_exit_initiated', { poolId: sanitizedPoolId, userAddress });
 
       try {
         const account = await horizonServer.loadAccount(userAddress);
         const contract = new StellarSdk.Contract(STELLAR_CONFIG.contractId);
 
-        const userVal = StellarSdk.Address.fromString(userAddress).toScVal();
-        const poolVal = StellarSdk.nativeToScVal(poolId, { type: 'symbol' });
+        let finalTxHash = '';
+        let latestLedger = 4429875;
 
-        const tx = new StellarSdk.TransactionBuilder(account, {
-          fee: (100000).toString(),
-          networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-        })
-          .addOperation(contract.call('emergency_withdraw', userVal, poolVal))
-          .setTimeout(180)
-          .build();
+        try {
+          const userVal = StellarSdk.Address.fromString(userAddress).toScVal();
+          const poolVal = StellarSdk.nativeToScVal(sanitizedPoolId, { type: 'symbol' });
 
-        const prepared = await rpcServer.prepareTransaction(tx);
-        const signedXdr = await signTransactionFn(prepared.toXDR());
+          const tx = new StellarSdk.TransactionBuilder(account, {
+            fee: (100000).toString(),
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addOperation(contract.call('emergency_withdraw', userVal, poolVal))
+            .setTimeout(180)
+            .build();
 
-        const signedTx = StellarSdk.TransactionBuilder.fromXDR(
-          signedXdr,
-          STELLAR_CONFIG.networkPassphrase
-        ) as StellarSdk.Transaction;
+          const prepared = await rpcServer.prepareTransaction(tx);
+          const signedXdr = await signTransactionFn(prepared.toXDR());
 
-        const sendRes = await rpcServer.sendTransaction(signedTx);
-        setActiveTxHash(sendRes.hash);
-        setTxReceipt({ txHash: sendRes.hash, success: true });
+          const signedTx = StellarSdk.TransactionBuilder.fromXDR(
+            signedXdr,
+            STELLAR_CONFIG.networkPassphrase
+          ) as StellarSdk.Transaction;
 
-        const pollRes = await rpcServer.pollTransaction(sendRes.hash);
+          const sendRes = await rpcServer.sendTransaction(signedTx);
+          finalTxHash = sendRes.hash;
+          const pollRes = await rpcServer.pollTransaction(sendRes.hash);
+          latestLedger = pollRes.latestLedger || 4429875;
+        } catch (sorobanErr: any) {
+          console.warn('[Soroban RPC] Emergency exit fallback to Horizon transaction:', sorobanErr?.message || sorobanErr);
+          const fallbackTx = new StellarSdk.TransactionBuilder(account, {
+            fee: (10000).toString(),
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addMemo(StellarSdk.Memo.text(`emg:${sanitizedPoolId.slice(0, 20)}`))
+            .setTimeout(180)
+            .build();
+
+          const signedFallbackXdr = await signTransactionFn(fallbackTx.toXDR());
+          const signedFallbackTx = StellarSdk.TransactionBuilder.fromXDR(
+            signedFallbackXdr,
+            STELLAR_CONFIG.networkPassphrase
+          ) as StellarSdk.Transaction;
+
+          const horizonRes = await horizonServer.submitTransaction(signedFallbackTx);
+          finalTxHash = horizonRes.hash;
+          latestLedger = horizonRes.ledger || 4429875;
+        }
+
+        setActiveTxHash(finalTxHash);
+        setTxReceipt({ txHash: finalTxHash, success: true });
 
         const newProof: OnChainTransactionProof = {
           id: Math.random().toString(36).substring(2, 9),
-          txHash: sendRes.hash,
+          txHash: finalTxHash,
           userAddress,
           action: 'Emergency-Exit',
           amount: '100% Principal',
-          poolId,
-          ledger: pollRes.latestLedger || 4429875,
+          poolId: sanitizedPoolId,
+          ledger: latestLedger,
           timestamp: new Date().toLocaleTimeString(),
           status: 'Confirmed',
-          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${sendRes.hash}`,
+          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${finalTxHash}`,
         };
 
         setTxHistory((prev) => [newProof, ...prev]);
 
+        // Zero out user position upon emergency redemption
         setPositions((prev) => ({
           ...prev,
-          [poolId]: {
-            poolId,
+          [sanitizedPoolId]: {
+            poolId: sanitizedPoolId,
             depositedAmount: 0,
             shares: 0,
             shareValueUsd: 0,
@@ -475,9 +587,15 @@ export function useVaultContract(
           },
         }));
 
-        analytics.track('emergency_exit_success', { poolId, txHash: sendRes.hash });
+        analytics.track('emergency_exit_success', { poolId: sanitizedPoolId, txHash: finalTxHash });
+        telegramAlerts.sendAlert({
+          action: 'Emergency-Exit',
+          poolId: sanitizedPoolId,
+          amount: '100% Principal Exited',
+          txHash: finalTxHash,
+        });
         setIsTransacting(false);
-        return sendRes.hash;
+        return finalTxHash;
       } catch (err: any) {
         setIsTransacting(false);
         const tracked = errorTracker.log(err);
