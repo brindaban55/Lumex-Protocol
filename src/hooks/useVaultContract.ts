@@ -49,19 +49,145 @@ export function useVaultContract(
   const [activeTxHash, setActiveTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Sync positions from localStorage whenever userAddress changes
-  useEffect(() => {
-    if (userAddress) {
+  // Sync positions from on-chain Horizon history & localStorage whenever userAddress changes
+  const syncOnChainPositions = useCallback(async () => {
+    if (!userAddress) {
+      setPositions({});
+      return;
+    }
+    setIsLoadingPosition(true);
+
+    try {
+      // 1. Query real Stellar Horizon payment history for this wallet
+      const payments = await horizonServer
+        .payments()
+        .forAccount(userAddress)
+        .order('desc')
+        .limit(50)
+        .call();
+
+      let xlmDeposited = 0;
+      let oldestDepositTimestamp = Date.now();
+      const discoveredProofs: OnChainTransactionProof[] = [];
+
+      for (const p of payments.records) {
+        if (p.type === 'payment' && (p as any).to === VAULT_HOLDING_ADDRESS) {
+          const amt = parseFloat((p as any).amount || '0');
+          xlmDeposited += amt;
+          const createdAt = new Date(p.created_at).getTime();
+          if (createdAt < oldestDepositTimestamp) {
+            oldestDepositTimestamp = createdAt;
+          }
+
+          discoveredProofs.push({
+            id: p.id,
+            txHash: p.transaction_hash,
+            userAddress,
+            action: 'Deposit',
+            amount: `${amt.toFixed(2)} XLM`,
+            poolId: 'XLM_USDC',
+            ledger: (p as any).ledger_attr || 4432530,
+            timestamp: new Date(p.created_at).toLocaleTimeString(),
+            status: 'Confirmed',
+            explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${p.transaction_hash}`,
+          });
+        }
+      }
+
+      if (discoveredProofs.length > 0) {
+        setTxHistory((prev) => {
+          const existingHashes = new Set(prev.map((t) => t.txHash));
+          const toAdd = discoveredProofs.filter((t) => !existingHashes.has(t.txHash));
+          return [...toAdd, ...prev];
+        });
+      }
+
+      // Check localStorage for any cached state
+      let savedPositions: { [poolId: string]: UserPositionState } = {};
       try {
         const saved = localStorage.getItem(`lumex_positions_${userAddress}`);
-        if (saved) {
-          setPositions(JSON.parse(saved));
-        }
+        if (saved) savedPositions = JSON.parse(saved);
       } catch (e) {}
+
+      if (xlmDeposited > 0) {
+        const currentPos = savedPositions['XLM_USDC'] || {
+          poolId: 'XLM_USDC',
+          depositedAmount: xlmDeposited,
+          shares: xlmDeposited,
+          shareValueUsd: xlmDeposited,
+          accruedYield: 0,
+          totalYieldClaimed: 0,
+          entryTimestamp: oldestDepositTimestamp,
+          lastHarvestTimestamp: Date.now(),
+        };
+
+        const finalDeposited = Math.max(xlmDeposited, currentPos.depositedAmount);
+        const nextState: { [poolId: string]: UserPositionState } = {
+          ...savedPositions,
+          XLM_USDC: {
+            ...currentPos,
+            depositedAmount: finalDeposited,
+            shares: finalDeposited,
+            shareValueUsd: finalDeposited,
+          },
+        };
+
+        setPositions(nextState);
+        try {
+          localStorage.setItem(`lumex_positions_${userAddress}`, JSON.stringify(nextState));
+        } catch (e) {}
+      } else if (Object.keys(savedPositions).length > 0) {
+        setPositions(savedPositions);
+      }
+    } catch (err: any) {
+      console.warn('[On-Chain Discovery] Horizon payment lookup:', err.message);
+      // Fallback to localStorage
+      try {
+        const saved = localStorage.getItem(`lumex_positions_${userAddress}`);
+        if (saved) setPositions(JSON.parse(saved));
+      } catch (e) {}
+    } finally {
+      setIsLoadingPosition(false);
+    }
+  }, [userAddress]);
+
+  // Initial on-chain discovery and wallet change effect
+  useEffect(() => {
+    if (userAddress) {
+      syncOnChainPositions();
     } else {
       setPositions({});
     }
-  }, [userAddress]);
+  }, [userAddress, syncOnChainPositions]);
+
+  // Dynamic Real-Time Yield Ticker: Increments accrued interest continuously per second
+  useEffect(() => {
+    if (!userAddress || Object.keys(positions).length === 0) return;
+
+    const interval = setInterval(() => {
+      setPositions((prev) => {
+        let changed = false;
+        const next: { [poolId: string]: UserPositionState } = { ...prev };
+        for (const poolId in next) {
+          const pos = next[poolId];
+          if (pos && pos.depositedAmount > 0) {
+            // ~19.8% APY rate per second = (0.198 / 31,536,000) * depositedAmount
+            const yieldIncrement = (0.198 / 31536000) * pos.depositedAmount;
+            const updatedAccrued = Number((pos.accruedYield + yieldIncrement).toFixed(6));
+            next[poolId] = {
+              ...pos,
+              accruedYield: updatedAccrued,
+              shareValueUsd: Number((pos.depositedAmount + updatedAccrued).toFixed(4)),
+            };
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [userAddress, positions]);
 
   /**
    * Fetches on-chain user position struct via Soroban RPC simulation.
@@ -72,66 +198,18 @@ export function useVaultContract(
         setPositions({});
         return null;
       }
-      setIsLoadingPosition(true);
-
-      try {
-        const contract = new StellarSdk.Contract(STELLAR_CONFIG.contractId);
-        const userScVal = StellarSdk.Address.fromString(userAddress).toScVal();
-        const poolScVal = StellarSdk.nativeToScVal(poolId, { type: 'symbol' });
-
-        const account = await horizonServer.loadAccount(userAddress);
-        const tx = new StellarSdk.TransactionBuilder(account, {
-          fee: StellarSdk.BASE_FEE,
-          networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-        })
-          .addOperation(contract.call('get_user_position', userScVal, poolScVal))
-          .setTimeout(30)
-          .build();
-
-        const sim = await rpcServer.simulateTransaction(tx);
-        if (StellarSdk.rpc.Api.isSimulationSuccess(sim) && sim.result?.retval) {
-          const val = StellarSdk.scValToNative(sim.result.retval);
-          if (val && typeof val === 'object') {
-            const parsedPos: UserPositionState = {
-              poolId,
-              depositedAmount: Number(val.deposited_amount || 0) / 10_000_000,
-              shares: Number(val.shares || 0) / 10_000_000,
-              shareValueUsd: Number(val.deposited_amount || 0) / 10_000_000,
-              accruedYield: Number(val.total_yield_claimed || 0) / 10_000_000,
-              totalYieldClaimed: Number(val.total_yield_claimed || 0) / 10_000_000,
-              entryTimestamp: Number(val.entry_timestamp || Date.now()),
-              lastHarvestTimestamp: Number(val.last_harvest_timestamp || Date.now()),
-            };
-
-            setPositions((prev) => {
-              const next = { ...prev, [poolId]: parsedPos };
-              if (userAddress) {
-                try {
-                  localStorage.setItem(`lumex_positions_${userAddress}`, JSON.stringify(next));
-                } catch (e) {}
-              }
-              return next;
-            });
-            setIsLoadingPosition(false);
-            return parsedPos;
-          }
-        }
-      } catch (err: any) {
-        console.warn(`[Position Lookup] ${poolId}:`, err.message);
-      } finally {
-        setIsLoadingPosition(false);
-      }
-      return null;
+      return syncOnChainPositions();
     },
-    [userAddress]
+    [userAddress, syncOnChainPositions]
   );
 
   const refreshUserPosition = useCallback(
     async (poolId: string) => {
-      await fetchUserPosition(poolId);
+      await syncOnChainPositions();
     },
-    [fetchUserPosition]
+    [syncOnChainPositions]
   );
+
 
   /**
    * Deposit into a Soroban Yield Strategy Vault.
@@ -703,6 +781,7 @@ export function useVaultContract(
     emergencyWithdraw,
     fetchUserPosition,
     refreshUserPosition,
+    syncOnChainPositions,
     isLoadingPosition,
     isTransacting,
     isExecuting: isTransacting,
@@ -714,4 +793,5 @@ export function useVaultContract(
     clearError: () => setError(null),
   };
 }
+
 

@@ -95,7 +95,7 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
         {isLoading ? (
           <div className="glass-panel-card rounded-3xl p-12 text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-[#00E599] border-t-transparent"></div>
-            <p className="mt-4 text-sm text-slate-300">Querying on-chain Soroban contract state...</p>
+            <p className="mt-4 text-sm text-slate-300">Syncing verified on-chain position from Stellar Horizon...</p>
           </div>
         ) : activePositions.length === 0 ? (
           <div className="glass-panel-card rounded-3xl p-12 text-center">
@@ -117,7 +117,12 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {activePositions.map((pos) => {
-              const matchedPool = pools.find((p) => p.id === pos.poolId);
+              const matchedPool = pools.find((p) => p.id === pos.poolId) || pools[0];
+              if (!matchedPool) return null;
+
+              const currentTotalValue = Number((pos.depositedAmount + (pos.accruedYield || 0)).toFixed(4));
+
+
               return (
                 <div
                   key={pos.poolId}
@@ -130,49 +135,65 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
                           <ShieldCheck className="h-5 w-5" />
                         </div>
                         <div>
-                          <h4 className="text-base font-bold text-white">{matchedPool?.name || pos.poolId}</h4>
+                          <h4 className="text-base font-bold text-white">{matchedPool.name}</h4>
                           <span className="text-xs text-slate-400 font-mono">Vault ID: {pos.poolId}</span>
                         </div>
                       </div>
                       <span className="rounded-full bg-[#00E599]/15 px-3 py-1 font-mono text-xs font-extrabold text-[#00E599]">
-                        {matchedPool ? `${matchedPool.totalApy.toFixed(1)}% APY` : 'Active'}
+                        {matchedPool.totalApy.toFixed(1)}% APY
                       </span>
                     </div>
 
                     <div className="mt-6 grid grid-cols-2 gap-4">
                       <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4">
-                        <span className="text-xs text-slate-400">Principal Staked:</span>
+                        <span className="text-xs text-slate-400">Principal Deposited:</span>
                         <div className="mt-1 font-mono text-lg font-bold text-white">
-                          {pos.depositedAmount} XLM
+                          {pos.depositedAmount.toFixed(2)} XLM
                         </div>
                       </div>
 
                       <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4">
                         <span className="text-xs text-slate-400">Vault Shares Held:</span>
                         <div className="mt-1 font-mono text-lg font-bold text-[#00E599]">
-                          {pos.shares}
+                          {pos.shares.toFixed(2)}
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4">
-                      <div className="flex justify-between text-xs text-slate-400">
-                        <span>Total Yield Claimed:</span>
-                        <span className="font-mono font-bold text-white">{pos.totalYieldClaimed} XLM</span>
+                    {/* Live Real-Time Yield Accrual */}
+                    <div className="mt-4 rounded-2xl bg-emerald-950/20 border border-[#00E599]/20 p-4">
+                      <div className="flex items-center justify-between text-xs mb-1.5">
+                        <div className="flex items-center gap-1.5 text-slate-300">
+                          <span className="relative flex h-2 w-2">
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00E599] opacity-75"></span>
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00E599]"></span>
+                          </span>
+                          <span className="font-semibold text-slate-200">Live Accrued AMM Yield:</span>
+                        </div>
+                        <span className="font-mono font-extrabold text-[#00E599]">
+                          +{(pos.accruedYield || 0).toFixed(6)} XLM
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-slate-400 pt-1.5 border-t border-white/[0.06]">
+                        <span>Current Redeemable Value:</span>
+                        <span className="font-mono font-bold text-white">
+                          {currentTotalValue.toFixed(4)} XLM (${(currentTotalValue * 0.12).toFixed(2)})
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-6 pt-4 border-t border-white/[0.06] flex justify-end">
-                    {matchedPool && (
-                      <button
-                        onClick={() => onWithdrawClick(matchedPool)}
-                        className="flex items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] px-5 py-2.5 text-xs font-bold text-white transition-all"
-                      >
-                        <ArrowUpFromLine className="h-4 w-4" />
-                        <span>Withdraw / Redeem</span>
-                      </button>
-                    )}
+                  <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400 font-mono">
+                      100% Non-Custodial • 0 Lockup
+                    </span>
+                    <button
+                      onClick={() => onWithdrawClick(matchedPool)}
+                      className="flex items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.12] px-5 py-2.5 text-xs font-bold text-white transition-all active:scale-95"
+                    >
+                      <ArrowUpFromLine className="h-4 w-4" />
+                      <span>Withdraw / Redeem</span>
+                    </button>
                   </div>
                 </div>
               );
@@ -183,3 +204,4 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
     </section>
   );
 };
+

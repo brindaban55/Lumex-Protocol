@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { HeroTelemetry } from './components/HeroTelemetry';
 import { VaultPoolsGrid } from './components/VaultPoolsGrid';
@@ -8,6 +8,7 @@ import { AnalyticsMonitoring } from './components/AnalyticsMonitoring';
 import { ProofOfInteractions } from './components/ProofOfInteractions';
 import { UserFeedbackModal } from './components/UserFeedbackModal';
 import { WithdrawModal } from './components/WithdrawModal';
+import { NewUserTourModal } from './components/NewUserTourModal';
 import { useLivePools } from './hooks/useLivePools';
 import { useFreighter } from './hooks/useFreighter';
 import { useGuestWallet } from './hooks/useGuestWallet';
@@ -19,6 +20,7 @@ import { STELLAR_CONFIG } from './config/stellar';
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('pools');
   const [isFeedbackOpen, setIsFeedbackOpen] = useState<boolean>(false);
+  const [isTourOpen, setIsTourOpen] = useState<boolean>(false);
   const [withdrawModalPool, setWithdrawModalPool] = useState<VaultPool | null>(null);
 
   const freighter = useFreighter();
@@ -27,12 +29,32 @@ export function App() {
   const activeSigner = freighter.isConnected ? freighter.signTx : guestWallet.signTx;
 
   const { pools, metrics, isLoading, refreshPools } = useLivePools();
-  const { userPositions, isLoadingPosition, refreshUserPosition } = useVaultContract(activeAddress || undefined, activeSigner);
+  const { 
+    userPositions, 
+    deposit, 
+    withdraw, 
+    emergencyWithdraw, 
+    isLoadingPosition, 
+    refreshUserPosition, 
+    syncOnChainPositions 
+  } = useVaultContract(activeAddress || undefined, activeSigner);
 
+  // Automatically trigger onboarding walkthrough if new wallet connects
+  useEffect(() => {
+    if (activeAddress) {
+      try {
+        const hasSeen = localStorage.getItem(`lumex_tour_completed_${activeAddress}`);
+        if (!hasSeen) {
+          setIsTourOpen(true);
+        }
+      } catch (e) {}
+    }
+  }, [activeAddress]);
 
   const handleWithdrawClick = (pool: VaultPool) => {
     setWithdrawModalPool(pool);
   };
+
 
   return (
     <div className="min-h-screen bg-[#06080D] bg-ambient-mesh text-slate-100 flex flex-col justify-between selection:bg-[#00E599]/30 selection:text-[#00E599]">
@@ -42,7 +64,9 @@ export function App() {
           activeTab={activeTab} 
           setActiveTab={setActiveTab} 
           openFeedbackModal={() => setIsFeedbackOpen(true)} 
+          onOpenTour={() => setIsTourOpen(true)}
         />
+
 
         {/* Dynamic Tab Views */}
         <main className="pb-16 animate-in fade-in duration-200">
@@ -172,8 +196,16 @@ export function App() {
           }}
         />
       )}
+
+      {/* Interactive New User Guided Walkthrough Tour Modal */}
+      <NewUserTourModal
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        userAddress={activeAddress}
+      />
     </div>
   );
 }
+
 
 export default App;

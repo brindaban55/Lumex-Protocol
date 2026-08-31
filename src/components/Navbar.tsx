@@ -25,9 +25,10 @@ interface NavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   openFeedbackModal?: () => void;
+  onOpenTour?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
+export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenTour }) => {
   const freighter = useFreighter();
   const guestWallet = useGuestWallet();
 
@@ -77,6 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
     }
     setShowDropdown(false);
   };
+
 
   const navItems = [
     { id: 'pools', label: 'Vault Strategies', icon: Layers },
@@ -136,6 +138,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
 
             {/* Right Action Bar */}
             <div className="flex items-center gap-3.5">
+              {/* Quick Tour Walkthrough Button */}
+              {onOpenTour && (
+                <button
+                  onClick={onOpenTour}
+                  className="hidden md:flex items-center gap-1.5 rounded-lg border border-[#00E599]/30 bg-[#00E599]/10 px-2.5 py-1.5 text-xs font-semibold text-[#00E599] hover:bg-[#00E599]/20 transition-all active:scale-95"
+                  title="Interactive How-It-Works Tour"
+                >
+                  <span>Quick Tour 🚀</span>
+                </button>
+              )}
+
               {/* Network Status Beacon */}
               <div className="hidden sm:flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-1.5">
                 <span className="relative flex h-2 w-2">
@@ -144,6 +157,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab }) => {
                 </span>
                 <span className="text-xs font-medium text-slate-300">Stellar Network</span>
               </div>
+
 
               {/* Wallet Button & Dropdown */}
               <div className="relative" ref={dropdownRef}>

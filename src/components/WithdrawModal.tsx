@@ -52,7 +52,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
     emergencyWithdraw: contractEmergencyWithdraw 
   } = useVaultContract(activeAddress, signTxFn);
 
-  const position = propPosition || positions[pool.id];
+  const position = propPosition || positions[pool.id] || positions['XLM_USDC'];
 
   const [withdrawShares, setWithdrawShares] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
