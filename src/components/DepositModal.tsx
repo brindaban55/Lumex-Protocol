@@ -15,35 +15,53 @@ import { X, ArrowDownRight, ShieldCheck, AlertTriangle, ExternalLink, Loader2, S
 import confetti from 'canvas-confetti';
 import { VaultPool } from '../types';
 import { STELLAR_CONFIG } from '../config/stellar';
+import { useFreighter } from '../hooks/useFreighter';
+import { useGuestWallet } from '../hooks/useGuestWallet';
+import { useVaultContract } from '../hooks/useVaultContract';
 
 interface DepositModalProps {
   pool: VaultPool;
-  userAddress: string | null;
-  userSpendableBalance: number;
-  isOpen: boolean;
+  userAddress?: string | null;
+  userSpendableBalance?: number;
+  isOpen?: boolean;
   onClose: () => void;
-  onDeposit: (poolId: string, amount: number) => Promise<string>;
-  onRefreshBalances: () => void;
+  onSuccess?: () => void;
+  onDeposit?: (poolId: string, amount: number) => Promise<string>;
+  onRefreshBalances?: () => void;
 }
 
 export const DepositModal: React.FC<DepositModalProps> = ({
   pool,
-  userAddress,
-  userSpendableBalance,
-  isOpen,
+  userAddress: propUserAddress,
+  userSpendableBalance: propSpendable,
+  isOpen = true,
   onClose,
+  onSuccess,
   onDeposit,
   onRefreshBalances,
 }) => {
+  const freighter = useFreighter();
+  const guestWallet = useGuestWallet();
+  
+  const activeAddress = propUserAddress || (freighter.isConnected ? freighter.publicKey : guestWallet.publicKey);
+  const signTxFn = freighter.isConnected ? freighter.signTx : guestWallet.signTx;
+  const { deposit: contractDeposit } = useVaultContract(activeAddress, signTxFn);
+
+  const activeSpendableBalance = propSpendable !== undefined 
+    ? propSpendable 
+    : freighter.isConnected 
+    ? freighter.spendableXlmBalance 
+    : guestWallet.spendableXlmBalance;
+
   const [depositAmount, setDepositAmount] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  if (isOpen === false) return null;
 
   const parsedAmount = parseFloat(depositAmount) || 0;
-  const isAmountValid = parsedAmount > 0 && parsedAmount <= userSpendableBalance;
+  const isAmountValid = parsedAmount > 0 && parsedAmount <= activeSpendableBalance;
 
   // Projected Yield Calculations
   const projectedDailyYield = (parsedAmount * (pool.totalApy / 100)) / 365;
@@ -51,7 +69,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
   const projectedYearlyYield = parsedAmount * (pool.totalApy / 100);
 
   const handlePercentageSelect = (pct: number) => {
-    const calculated = (userSpendableBalance * pct) / 100;
+    const calculated = (activeSpendableBalance * pct) / 100;
     setDepositAmount(calculated > 0 ? calculated.toFixed(2) : '0');
   };
 
@@ -62,7 +80,10 @@ export const DepositModal: React.FC<DepositModalProps> = ({
     setTxHash(null);
 
     try {
-      const hash = await onDeposit(pool.id, parsedAmount);
+      const hash = onDeposit 
+        ? await onDeposit(pool.id, parsedAmount)
+        : await contractDeposit(pool.id, parsedAmount);
+      
       setTxHash(hash);
       confetti({
         particleCount: 80,
@@ -70,13 +91,17 @@ export const DepositModal: React.FC<DepositModalProps> = ({
         origin: { y: 0.6 },
         colors: ['#00E599', '#3E7BFA', '#00E5FF'],
       });
-      onRefreshBalances();
+      if (onRefreshBalances) onRefreshBalances();
+      if (freighter.isConnected) freighter.refreshBalances();
+      if (guestWallet.isConnected) guestWallet.refreshGuestBalances();
+      if (onSuccess) onSuccess();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Deposit transaction failed on Stellar testnet.');
+      setErrorMessage(err.message || 'Deposit transaction failed on Stellar.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -158,7 +183,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
               <div className="flex items-center justify-between text-xs text-slate-400 font-medium">
                 <span>Deposit Amount</span>
                 <span className="font-mono">
-                  Spendable: <strong className="text-white">{userSpendableBalance.toFixed(2)}</strong> {pool.assetA.symbol}
+                  Spendable: <strong className="text-white">{activeSpendableBalance.toFixed(2)}</strong> {pool.assetA.symbol}
                 </span>
               </div>
 
@@ -228,9 +253,9 @@ export const DepositModal: React.FC<DepositModalProps> = ({
             {/* Confirm Button */}
             <button
               onClick={handleConfirmDeposit}
-              disabled={!isAmountValid || isSubmitting || !userAddress}
+              disabled={!isAmountValid || isSubmitting || !activeAddress}
               className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center space-x-2 transition-all min-touch-target ${
-                !userAddress
+                !activeAddress
                   ? 'bg-surface-light text-slate-500 cursor-not-allowed border border-surface-border'
                   : !isAmountValid || isSubmitting
                   ? 'bg-surface-light text-slate-500 cursor-not-allowed border border-surface-border'
@@ -242,12 +267,13 @@ export const DepositModal: React.FC<DepositModalProps> = ({
                   <Loader2 className="w-5 h-5 animate-spin" />
                   <span>Submitting Soroban Transaction...</span>
                 </>
-              ) : !userAddress ? (
+              ) : !activeAddress ? (
                 <span>Connect Wallet to Deposit</span>
               ) : (
                 <span>Deposit {parsedAmount > 0 ? `${parsedAmount.toFixed(2)} ${pool.assetA.symbol}` : ''}</span>
               )}
             </button>
+
 
             <div className="text-[10px] text-slate-400 text-center flex items-center justify-center space-x-1">
               <ShieldCheck className="w-3 h-3 text-primary" />

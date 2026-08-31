@@ -180,9 +180,26 @@ export function useGuestWallet() {
 
   return {
     guestState,
+    isConnected: guestState.isGuestActive,
+    isGuestActive: guestState.isGuestActive,
+    address: guestState.publicKey,
+    publicKey: guestState.publicKey,
+    secretKey: guestState.secretKey,
+    balance: guestState.xlmBalance.toString(),
+    spendableBalance: guestState.spendableXlmBalance.toString(),
+    xlmBalance: guestState.xlmBalance,
+    spendableXlmBalance: guestState.spendableXlmBalance,
+    usdcBalance: guestState.usdcBalance,
+    aquaBalance: guestState.aquaBalance,
+    isFunding: guestState.isFunding,
+    error: guestState.error,
+    createGuestWallet: createAndFundGuest,
     createAndFundGuest,
+    disconnect: clearGuest,
     clearGuest,
+    signTx: signGuestTx,
     signGuestTx,
     refreshGuestBalances: () => guestState.publicKey && fetchGuestBalances(guestState.publicKey),
   };
 }
+

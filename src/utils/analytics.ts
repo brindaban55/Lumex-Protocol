@@ -105,3 +105,16 @@ class AnalyticsEngine {
 }
 
 export const analytics = new AnalyticsEngine();
+
+export const trackEvent = (eventName: AnalyticsEventType | string, properties: Record<string, any> = {}) => {
+  analytics.track(eventName as AnalyticsEventType, properties);
+};
+
+export const getTelemetryEvents = () => {
+  return analytics.getRecentEvents().map((e) => ({
+    name: e.eventName,
+    timestamp: e.timestamp,
+    properties: e.properties,
+  }));
+};
+

@@ -69,8 +69,9 @@ export const TESTNET_TOKENS = {
   },
   USDC: {
     symbol: 'USDC',
-    name: 'USD Coin (Testnet)',
+    name: 'USD Coin',
     decimals: 7,
+
     isNative: false,
     issuer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
     contractId: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWUIPWNL2PBJKS2CGMN',

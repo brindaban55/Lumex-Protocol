@@ -15,20 +15,21 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { VaultPool, ProtocolTelemetry } from '../types';
+import { VaultPool, ProtocolTelemetry, ProtocolMetrics } from '../types';
 import { INITIAL_VAULT_POOLS, STELLAR_CONFIG } from '../config/stellar';
 import { analytics } from '../utils/analytics';
 
 export function useLivePools() {
   const [pools, setPools] = useState<VaultPool[]>(INITIAL_VAULT_POOLS);
+  const [lastCompoundTrigger, setLastCompoundTrigger] = useState<string>('Just now (15m Interval)');
   const [telemetry, setTelemetry] = useState<ProtocolTelemetry>({
-    totalTvlUsd: 442750,
-    totalYieldHarvestedUsd: 14890.40,
-    avgProtocolApy: 21.36,
-    activeStakersCount: 143,
-    totalTransactionsCount: 1248,
-    horizonLatencyMs: 84,
-    rpcBlockHeight: 384912,
+    totalTvlUsd: 0,
+    totalYieldHarvestedUsd: 0,
+    avgProtocolApy: 0,
+    activeStakersCount: 0,
+    totalTransactionsCount: 12,
+    horizonLatencyMs: 45,
+    rpcBlockHeight: 4429875,
     networkStatus: 'Operational',
   });
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -64,7 +65,7 @@ export function useLivePools() {
               if (reserves.length >= 2) {
                 const amountA = parseFloat(reserves[0].amount) || 0;
                 const amountB = parseFloat(reserves[1].amount) || 0;
-                calculatedTvl = Math.max(10000, amountA * 0.12 + amountB);
+                calculatedTvl = Math.max(1000, amountA * 0.12 + amountB);
               }
 
               // Continuous fee yield formulation: (Daily Fee Volume * 365 * 0.003) / TVL
@@ -92,7 +93,7 @@ export function useLivePools() {
 
         // 3. Fetch latest confirmed ledger sequence height
         const ledgerRes = await fetch(`${STELLAR_CONFIG.horizonUrl}/ledgers?order=desc&limit=1`);
-        let currentLedger = 384912;
+        let currentLedger = 4429875;
         if (ledgerRes.ok) {
           const ledgerData = await ledgerRes.json();
           currentLedger = ledgerData._embedded?.records?.[0]?.sequence || currentLedger;
@@ -104,10 +105,12 @@ export function useLivePools() {
           const totalTvl = activeList.reduce((acc, p) => acc + p.tvlUsd, 0);
           const avgApy = Number((activeList.reduce((acc, p) => acc + p.totalApy, 0) / activeList.length).toFixed(2));
           const totalStakers = activeList.reduce((acc, p) => acc + p.stakersCount, 0);
+          const totalFees = activeList.reduce((acc, p) => acc + p.dailyFeeVolumeUsd, 0);
 
           return {
             ...prev,
             totalTvlUsd: totalTvl,
+            totalYieldHarvestedUsd: totalFees * 7.5,
             avgProtocolApy: avgApy,
             activeStakersCount: totalStakers,
             horizonLatencyMs: latency,
@@ -128,16 +131,47 @@ export function useLivePools() {
     }
   }, []);
 
+  const triggerManualCompoundSimulation = useCallback((poolId: string) => {
+    setLastCompoundTrigger(`Triggered now for ${poolId}`);
+    setPools((prev) =>
+      prev.map((p) => {
+        if (p.id === poolId) {
+          return {
+            ...p,
+            totalDeposits: p.totalDeposits + 4.25,
+            dailyFeeVolumeUsd: Number((p.dailyFeeVolumeUsd + 12.5).toFixed(2)),
+          };
+        }
+        return p;
+      })
+    );
+  }, []);
+
   useEffect(() => {
     fetchLiveHorizonPools();
     const interval = setInterval(fetchLiveHorizonPools, 15000);
     return () => clearInterval(interval);
   }, [fetchLiveHorizonPools]);
 
+  const metrics: ProtocolMetrics = {
+    totalValueLockedUsd: telemetry.totalTvlUsd,
+    totalFeesHarvestedUsd: telemetry.totalYieldHarvestedUsd,
+    averageApy: telemetry.avgProtocolApy,
+    totalStakers: telemetry.activeStakersCount,
+    activeLedger: telemetry.rpcBlockHeight,
+    ledgerLatencyMs: telemetry.horizonLatencyMs,
+    horizonLatencyMs: telemetry.horizonLatencyMs,
+  };
+
   return {
     pools,
     telemetry,
+    metrics,
+    isLoading: isRefreshing,
     isRefreshing,
     refreshPools: fetchLiveHorizonPools,
+    lastCompoundTrigger,
+    triggerManualCompoundSimulation,
   };
 }
+

@@ -1,19 +1,3 @@
-/**
- * ==============================================================================
- * Lumex Protocol — Main Application Shell & State Controller
- * ==============================================================================
- * 
- * Orchestrates multi-wallet connectivity, Horizon DEX telemetry streams,
- * Soroban contract invocation life-cycle, and responsive view routing.
- * 
- * View Structure:
- * - Vaults: Active AMM strategy cards, APY analytics, and deposit/withdrawal modals.
- * - Portfolio: Real-time user position tracker and non-custodial capital redemption.
- * - Terminal: Decentralized keeper harvest daemon with 1% bounty distributor.
- * - Analytics: RPC/Horizon latency monitoring, block height, and protocol vitals.
- * - Proofs: Verifiable table of on-chain testnet transactions.
- */
-
 import React, { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { HeroTelemetry } from './components/HeroTelemetry';
@@ -23,259 +7,171 @@ import { AutoCompoundTerminal } from './components/AutoCompoundTerminal';
 import { AnalyticsMonitoring } from './components/AnalyticsMonitoring';
 import { ProofOfInteractions } from './components/ProofOfInteractions';
 import { UserFeedbackModal } from './components/UserFeedbackModal';
+import { WithdrawModal } from './components/WithdrawModal';
+import { useLivePools } from './hooks/useLivePools';
 import { useFreighter } from './hooks/useFreighter';
 import { useGuestWallet } from './hooks/useGuestWallet';
-import { useLivePools } from './hooks/useLivePools';
 import { useVaultContract } from './hooks/useVaultContract';
+import { VaultPool } from './types';
+import { Zap, Github, ExternalLink, ShieldCheck, Heart, MessageSquare } from 'lucide-react';
 import { STELLAR_CONFIG } from './config/stellar';
-import { 
-  Zap, 
-  ExternalLink, 
-  MessageSquare, 
-  AlertCircle 
-} from 'lucide-react';
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<string>('vaults');
+  const [activeTab, setActiveTab] = useState<string>('pools');
   const [isFeedbackOpen, setIsFeedbackOpen] = useState<boolean>(false);
+  const [withdrawModalPool, setWithdrawModalPool] = useState<VaultPool | null>(null);
 
-  // Wallets
-  const {
-    wallet: freighterWallet,
-    connectWallet: connectFreighter,
-    disconnectWallet: disconnectFreighter,
-    signTx: signFreighterTx,
-    refreshBalances: refreshFreighterBalances,
-  } = useFreighter();
+  const freighter = useFreighter();
+  const guestWallet = useGuestWallet();
+  const activeAddress = freighter.isConnected ? freighter.publicKey : guestWallet.publicKey;
+  const activeSigner = freighter.isConnected ? freighter.signTx : guestWallet.signTx;
 
-  const {
-    guestState,
-    createAndFundGuest,
-    clearGuest,
-    signGuestTx,
-    refreshGuestBalances,
-  } = useGuestWallet();
+  const { pools, metrics, isLoading, refreshPools } = useLivePools();
+  const { userPositions, isLoadingPosition, refreshUserPosition } = useVaultContract(activeAddress || undefined, activeSigner);
 
-  // Active wallet determination (Freighter takes precedence if connected, else Guest)
-  const isFreighterActive = freighterWallet.isConnected && !!freighterWallet.address;
-  const isGuestActive = guestState.isGuestActive && !!guestState.publicKey;
 
-  const activeAddress = isFreighterActive
-    ? freighterWallet.address
-    : isGuestActive
-    ? guestState.publicKey
-    : null;
-
-  const activeWalletType: 'freighter' | 'guest' | null = isFreighterActive
-    ? 'freighter'
-    : isGuestActive
-    ? 'guest'
-    : null;
-
-  const activeXlmBalance = isFreighterActive
-    ? freighterWallet.xlmBalance
-    : isGuestActive
-    ? guestState.xlmBalance
-    : 0;
-
-  const activeSpendableBalance = isFreighterActive
-    ? freighterWallet.spendableXlmBalance
-    : isGuestActive
-    ? guestState.spendableXlmBalance
-    : 0;
-
-  const activeSigner = isFreighterActive
-    ? signFreighterTx
-    : isGuestActive
-    ? signGuestTx
-    : null;
-
-  const refreshActiveBalances = () => {
-    if (isFreighterActive) refreshFreighterBalances();
-    if (isGuestActive) refreshGuestBalances();
+  const handleWithdrawClick = (pool: VaultPool) => {
+    setWithdrawModalPool(pool);
   };
-
-  const handleDisconnectAll = () => {
-    if (isFreighterActive) disconnectFreighter();
-    if (isGuestActive) clearGuest();
-  };
-
-  // Pools & Telemetry
-  const { pools, telemetry, isRefreshing, refreshPools } = useLivePools();
-
-  // Vault Contract Actions
-  const {
-    positions,
-    deposit,
-    withdraw,
-    compoundYield,
-    emergencyWithdraw,
-    txHistory,
-    error: contractError,
-    clearError,
-  } = useVaultContract(activeAddress, activeSigner);
 
   return (
-    <div className="min-h-screen bg-background text-slate-100 flex flex-col selection:bg-primary/30 selection:text-primary">
-      
-      {/* Navigation Header */}
-      <Navbar
-        userAddress={activeAddress}
-        walletType={activeWalletType}
-        xlmBalance={activeXlmBalance}
-        spendableXlmBalance={activeSpendableBalance}
-        isFreighterInstalled={freighterWallet.isFreighterInstalled}
-        onConnectFreighter={connectFreighter}
-        onConnectGuest={createAndFundGuest}
-        onDisconnect={handleDisconnectAll}
-        isGuestFunding={guestState.isFunding}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenFeedback={() => setIsFeedbackOpen(true)}
-      />
+    <div className="min-h-screen bg-[#06080D] bg-ambient-mesh text-slate-100 flex flex-col justify-between selection:bg-[#00E599]/30 selection:text-[#00E599]">
+      <div>
+        {/* Navigation Bar */}
+        <Navbar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          openFeedbackModal={() => setIsFeedbackOpen(true)} 
+        />
 
-      {/* Contract Error Banner */}
-      {contractError && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 w-full">
-          <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{contractError}</span>
-            </div>
-            <button
-              onClick={clearError}
-              className="text-xs font-bold underline hover:text-white min-touch-target flex items-center"
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main Content Areas based on Active Tab */}
-      <main className="flex-1">
-        {activeTab === 'vaults' && (
-          <>
-            <HeroTelemetry
-              telemetry={telemetry}
-              onExploreVaults={() => {
-                const el = document.getElementById('vaults-section');
-                el?.scrollIntoView({ behavior: 'smooth' });
-              }}
-              onOpenCompounder={() => setActiveTab('terminal')}
-            />
-
-            <div id="vaults-section">
-              <VaultPoolsGrid
-                pools={pools}
-                userAddress={activeAddress}
-                userSpendableBalance={activeSpendableBalance}
-                positions={positions}
-                isRefreshing={isRefreshing}
-                onRefreshPools={refreshPools}
-                onDeposit={deposit}
-                onWithdraw={withdraw}
-                onEmergencyWithdraw={emergencyWithdraw}
-                onRefreshBalances={refreshActiveBalances}
+        {/* Dynamic Tab Views */}
+        <main className="pb-16 animate-in fade-in duration-200">
+          {activeTab === 'pools' && (
+            <>
+              <HeroTelemetry
+                metrics={metrics}
+                onExploreVaults={() => {
+                  const el = document.getElementById('vaults-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                onLaunchKeeper={() => setActiveTab('autocompound')}
               />
+              <div id="vaults-section">
+                <VaultPoolsGrid
+                  pools={pools}
+                  userAddress={activeAddress}
+                  onRefresh={() => {
+                    refreshPools();
+                    if (activeAddress) refreshUserPosition(pools[0]?.id || 'XLM_USDC');
+                  }}
+                  isLoading={isLoading}
+                />
+              </div>
+            </>
+          )}
+
+          {activeTab === 'positions' && (
+            <UserPositionCard
+              positions={userPositions}
+              pools={pools}
+              onWithdrawClick={handleWithdrawClick}
+              onExploreVaults={() => setActiveTab('pools')}
+              isLoading={isLoadingPosition}
+            />
+          )}
+
+          {activeTab === 'autocompound' && (
+            <AutoCompoundTerminal
+              pools={pools}
+              userAddress={activeAddress}
+              onSuccess={() => {
+                refreshPools();
+                if (activeAddress) refreshUserPosition(pools[0]?.id || 'XLM_USDC');
+              }}
+            />
+          )}
+
+          {activeTab === 'analytics' && (
+            <AnalyticsMonitoring metrics={metrics} />
+          )}
+
+          {activeTab === 'proofs' && (
+            <ProofOfInteractions />
+          )}
+        </main>
+      </div>
+
+      {/* Institutional Enterprise Footer */}
+      <footer className="border-t border-white/[0.08] bg-[#05070B] py-10 text-xs text-slate-400">
+        <div className="layout-container">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#00E599]/15 text-[#00E599]">
+                <Zap className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="font-bold text-sm text-white">LUMEX PROTOCOL</div>
+                <p className="text-[11px] text-slate-500">Automated Yield Optimizer on Stellar & Soroban</p>
+              </div>
             </div>
-          </>
-        )}
 
-        {activeTab === 'portfolio' && (
-          <UserPositionCard
-            userAddress={activeAddress}
-            pools={pools}
-            positions={positions}
-            userSpendableBalance={activeSpendableBalance}
-            onDeposit={deposit}
-            onWithdraw={withdraw}
-            onEmergencyWithdraw={emergencyWithdraw}
-            onCompoundYield={compoundYield}
-            onConnectWallet={connectFreighter}
-            onRefreshBalances={refreshActiveBalances}
-          />
-        )}
+            <div className="flex flex-wrap items-center gap-6 text-xs">
+              <a
+                href={`https://stellar.expert/explorer/testnet/contract/${STELLAR_CONFIG.contractId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 hover:text-[#00E599] transition-colors"
+              >
+                <span>Smart Contract</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
 
-        {activeTab === 'terminal' && (
-          <AutoCompoundTerminal
-            pools={pools}
-            userAddress={activeAddress}
-            onCompoundYield={compoundYield}
-            onConnectWallet={connectFreighter}
-          />
-        )}
+              <a
+                href="https://developers.stellar.org/docs"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 hover:text-[#00E599] transition-colors"
+              >
+                <span>Stellar Docs</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
 
-        {activeTab === 'analytics' && (
-          <AnalyticsMonitoring
-            telemetry={telemetry}
-            txHistory={txHistory}
-          />
-        )}
-
-        {activeTab === 'proofs' && (
-          <ProofOfInteractions txHistory={txHistory} />
-        )}
-      </main>
-
-      {/* User Feedback Modal */}
-      <UserFeedbackModal
-        userAddress={activeAddress}
-        isOpen={isFeedbackOpen}
-        onClose={() => setIsFeedbackOpen(false)}
-      />
-
-      {/* Footer */}
-      <footer className="border-t border-surface-border bg-surface-light/50 py-10 sm:py-12 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-          
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-              <Zap className="w-4 h-4" />
+              <button
+                onClick={() => setIsFeedbackOpen(true)}
+                className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                <span>Developer Dispatch</span>
+              </button>
             </div>
-            <div>
-              <div className="text-sm font-bold text-white">Lumex Protocol</div>
-              <p className="text-xs text-slate-400">Non-Custodial Stellar & Soroban Yield Vaults</p>
+
+            <div className="text-[11px] text-slate-500 font-mono">
+              Stellar Protocol 22/27 • 100% Non-Custodial
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-400 font-medium">
-            <a
-              href={`${STELLAR_CONFIG.explorerBaseUrl}/contract/${STELLAR_CONFIG.contractId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-primary transition-colors flex items-center space-x-1"
-            >
-              <span>Contract on StellarExpert</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-
-            <a
-              href="https://developers.stellar.org/docs/build"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-primary transition-colors flex items-center space-x-1"
-            >
-              <span>Stellar Developers</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
-
-            <button
-              onClick={() => setIsFeedbackOpen(true)}
-              className="hover:text-primary transition-colors flex items-center space-x-1"
-            >
-              <MessageSquare className="w-3 h-3" />
-              <span>Submit Feedback</span>
-            </button>
-          </div>
-
-          <div className="text-xs text-slate-500 font-mono">
-            Stellar Testnet • Protocol 22/27
-          </div>
-
         </div>
       </footer>
 
+      {/* Developer Feedback Modal */}
+      <UserFeedbackModal
+        isOpen={isFeedbackOpen}
+        onClose={() => setIsFeedbackOpen(false)}
+        userAddress={activeAddress}
+      />
+
+      {/* Direct Withdraw Modal */}
+      {withdrawModalPool && (
+        <WithdrawModal
+          pool={withdrawModalPool}
+          userAddress={activeAddress}
+          onClose={() => setWithdrawModalPool(null)}
+          onSuccess={() => {
+            setWithdrawModalPool(null);
+            refreshPools();
+            if (activeAddress) refreshUserPosition(withdrawModalPool.id);
+          }}
+        />
+      )}
     </div>
   );
 }

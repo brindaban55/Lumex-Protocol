@@ -227,9 +227,25 @@ export function useFreighter() {
 
   return {
     wallet,
+    isConnected: wallet.isConnected,
+    address: wallet.address,
+    publicKey: wallet.address,
+    network: wallet.network,
+    balance: wallet.xlmBalance.toString(),
+    spendableBalance: wallet.spendableXlmBalance.toString(),
+    xlmBalance: wallet.xlmBalance,
+    spendableXlmBalance: wallet.spendableXlmBalance,
+    usdcBalance: wallet.usdcBalance,
+    aquaBalance: wallet.aquaBalance,
+    isFreighterInstalled: wallet.isFreighterInstalled,
+    isLoading: wallet.isLoading,
+    error: wallet.error,
+    connect: connectWallet,
     connectWallet,
+    disconnect: disconnectWallet,
     disconnectWallet,
     signTx,
     refreshBalances: () => wallet.address && fetchLiveBalances(wallet.address),
   };
 }
+

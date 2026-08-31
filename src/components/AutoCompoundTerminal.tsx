@@ -1,255 +1,234 @@
-/**
- * ==============================================================================
- * Lumex Protocol — Decentralized Keeper Auto-Compounder Terminal Component
- * ==============================================================================
- * 
- * Implements the decentralized keeper execution terminal:
- * - Allows any staker, bot, or keeper to invoke `compound_yield(caller, pool_id)`.
- * - Automatically computes accrued DEX AMM fees and 1% caller bounty reward.
- * - Interactive live terminal log window streaming RPC preparation, simulation,
- *   and confirmed transaction hashes with direct StellarExpert explorer links.
- */
-
 import React, { useState } from 'react';
 import { 
-  Sparkles, 
-  Coins, 
+  Cpu, 
+  Zap, 
+  RefreshCw, 
+  CheckCircle2, 
+  Gift, 
   Clock, 
-  Loader2, 
-  ExternalLink
+  AlertCircle, 
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 import { VaultPool } from '../types';
-import { STELLAR_CONFIG } from '../config/stellar';
+import { useVaultContract } from '../hooks/useVaultContract';
+import { useLivePools } from '../hooks/useLivePools';
+import { useFreighter } from '../hooks/useFreighter';
+import { useGuestWallet } from '../hooks/useGuestWallet';
 
 interface AutoCompoundTerminalProps {
   pools: VaultPool[];
   userAddress: string | null;
-  onCompoundYield: (poolId: string) => Promise<string>;
-  onConnectWallet: () => void;
+  onSuccess: () => void;
 }
 
 export const AutoCompoundTerminal: React.FC<AutoCompoundTerminalProps> = ({
   pools,
   userAddress,
-  onCompoundYield,
-  onConnectWallet,
+  onSuccess,
 }) => {
+  const freighter = useFreighter();
+  const guestWallet = useGuestWallet();
+  const activeSigner = freighter.isConnected ? freighter.signTx : guestWallet.signTx;
+
+  const { compoundYield, isExecuting, txReceipt, clearReceipt } = useVaultContract(userAddress, activeSigner);
+  const { lastCompoundTrigger, triggerManualCompoundSimulation } = useLivePools();
+
   const [selectedPoolId, setSelectedPoolId] = useState<string>(pools[0]?.id || 'XLM_USDC');
-  const [isHarvesting, setIsHarvesting] = useState<boolean>(false);
-  const [terminalLogs, setTerminalLogs] = useState<string[]>([
-    `[${new Date().toLocaleTimeString()}] Soroban Keeper Network v1.0.4 initialized`,
-    `[${new Date().toLocaleTimeString()}] Listening to Stellar DEX liquidity pool event streams...`,
-    `[${new Date().toLocaleTimeString()}] AMM 0.3% LP fee accumulator active on Testnet`,
-  ]);
-  const [latestTxHash, setLatestTxHash] = useState<string | null>(null);
+  const [bountyEarned, setBountyEarned] = useState<string | null>(null);
 
-  const activePool = pools.find((p) => p.id === selectedPoolId) || pools[0];
+  const selectedPool = pools.find((p) => p.id === selectedPoolId) || pools[0];
 
-  // Simulated Pending Harvestable Fees
-  const pendingFeesUsd = Number((activePool.tvlUsd * (activePool.baseApy / 100 / 365) * 0.42).toFixed(2));
-  const estimatedKeeperBounty = Number((pendingFeesUsd * 0.01).toFixed(4));
-  const estimatedSharePriceBoost = (activePool.boostApy / 100 / 365 * 100).toFixed(3);
+  // 1% Keeper Bounty Calculation
+  const estimatedHarvestUsd = (selectedPool?.dailyFeeVolumeUsd || 1500) / 96; // ~15m slice
+  const keeperBountyUsd = estimatedHarvestUsd * 0.01;
 
-  const handleExecuteCompound = async () => {
-    if (!userAddress) {
-      onConnectWallet();
-      return;
-    }
-
-    setIsHarvesting(true);
-    const logTime = new Date().toLocaleTimeString();
-    setTerminalLogs((prev) => [
-      `[${logTime}] Invoking compound_yield('${activePool.id}') on contract ${STELLAR_CONFIG.contractId.substring(0, 8)}...`,
-      ...prev,
-    ]);
-
+  const handleCompound = async () => {
+    if (!selectedPool) return;
     try {
-      const hash = await onCompoundYield(activePool.id);
-      setLatestTxHash(hash);
-      setTerminalLogs((prev) => [
-        `[${new Date().toLocaleTimeString()}] SUCCESS: Reinvested $${pendingFeesUsd} DEX fees into ${activePool.name}`,
-        `[${new Date().toLocaleTimeString()}] Keeper Bounty: +$${estimatedKeeperBounty} awarded to ${userAddress.substring(0, 6)}...`,
-        `[${new Date().toLocaleTimeString()}] Tx Hash: ${hash}`,
-        ...prev,
-      ]);
-    } catch (err: any) {
-      setTerminalLogs((prev) => [
-        `[${new Date().toLocaleTimeString()}] ERROR: ${err.message || 'Harvest failed'}`,
-        ...prev,
-      ]);
-    } finally {
-      setIsHarvesting(false);
+      const res = await compoundYield(selectedPool.id, userAddress || undefined);
+      if (res && res.success) {
+        setBountyEarned(`+${(keeperBountyUsd / 0.12).toFixed(4)} XLM (~$${keeperBountyUsd.toFixed(3)})`);
+        triggerManualCompoundSimulation(selectedPool.id);
+        onSuccess();
+      }
+    } catch (e) {
+      console.error(e);
     }
   };
 
+
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center space-x-2">
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+    <section className="py-8">
+      <div className="layout-container">
+        {/* Section Header */}
+        <div className="border-b border-white/[0.08] pb-6 mb-8">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
               Decentralized Keeper Auto-Compounder
             </h2>
-            <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-              1% Keeper Bounty
+            <span className="rounded-full bg-[#00E599]/15 px-3 py-1 text-xs font-bold text-[#00E599] border border-[#00E599]/30">
+              1% Bounty Active
             </span>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Anyone can trigger fee compounding on Soroban. The smart contract automatically reinvests DEX fees into vault shares and distributes a 1% bounty to the caller.
+          <p className="mt-1 text-sm text-slate-400">
+            Permissionless keeper engine: trigger on-chain fee harvest cycles and earn caller bounties directly on Stellar.
           </p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left 5 Cols: Harvest Trigger Panel */}
-        <div className="lg:col-span-5 glass-panel rounded-3xl border border-surface-border p-5 sm:p-6 space-y-6">
-          
-          {/* Strategy Selector Tabs */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Select Strategy Pool to Compound
-            </label>
-            <div className="grid grid-cols-1 gap-2">
-              {pools.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedPoolId(p.id)}
-                  className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all min-touch-target ${
-                    selectedPoolId === p.id
-                      ? 'bg-surface-light border-primary/40 shadow-sm'
-                      : 'bg-surface border-surface-border hover:border-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center font-mono font-bold text-xs text-primary">
-                      {p.assetA.symbol}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white">{p.name}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">TVL: ${p.tvlUsd.toLocaleString()}</div>
-                    </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Terminal Action Box */}
+          <div className="glass-panel-card rounded-3xl p-7 lg:col-span-2 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/15 text-purple-400">
+                    <Cpu className="h-5 w-5" />
                   </div>
-                  <span className="text-xs font-mono font-bold text-primary">{p.totalApy}% APY</span>
-                </button>
-              ))}
+                  <div>
+                    <h3 className="text-base font-bold text-white">Keeper Harvest & Rebalance Loop</h3>
+                    <span className="text-xs text-slate-400">Soroban Contract Execution</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <Clock className="h-3.5 w-3.5 text-[#00E599]" />
+                  <span>Cycle: Every 15 min</span>
+                </div>
+              </div>
+
+              {/* Pool Selection Tabs */}
+              <div className="mt-6">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 block">
+                  Select Strategy Vault to Compound:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {pools.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setSelectedPoolId(p.id);
+                        clearReceipt();
+                        setBountyEarned(null);
+                      }}
+                      className={`rounded-2xl border p-4 text-left transition-all ${
+                        selectedPoolId === p.id
+                          ? 'border-[#00E599] bg-[#00E599]/10 text-white shadow-md'
+                          : 'border-white/[0.08] bg-white/[0.02] text-slate-400 hover:border-white/[0.2] hover:text-white'
+                      }`}
+                    >
+                      <div className="font-bold text-sm text-white">{p.name}</div>
+                      <div className="mt-1 font-mono text-xs text-[#00E599]">{p.totalApy.toFixed(1)}% APY</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Simulation Matrix */}
+              <div className="mt-6 rounded-2xl bg-black/40 border border-white/[0.08] p-5 space-y-3 text-xs">
+                <div className="flex justify-between text-slate-400">
+                  <span>Accrued 15m DEX Trading Fees:</span>
+                  <span className="font-mono font-bold text-white">${estimatedHarvestUsd.toFixed(2)} USD</span>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Net Reinvested Yield (99%):</span>
+                  <span className="font-mono font-bold text-[#00E599]">
+                    ${(estimatedHarvestUsd * 0.99).toFixed(2)} USD
+                  </span>
+                </div>
+                <div className="flex justify-between text-slate-400 pt-2 border-t border-white/[0.06]">
+                  <span className="flex items-center gap-1.5 text-purple-400 font-semibold">
+                    <Gift className="h-4 w-4" />
+                    <span>Caller 1% Keeper Bounty:</span>
+                  </span>
+                  <span className="font-mono font-black text-purple-400">
+                    ${keeperBountyUsd.toFixed(3)} USD
+                  </span>
+                </div>
+              </div>
+
+              {/* Success Notification */}
+              {txReceipt && (
+                <div className="mt-5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 p-4 text-xs text-emerald-300">
+                  <div className="flex items-center gap-2 font-bold text-white mb-1">
+                    <CheckCircle2 className="h-4 w-4 text-[#00E599]" />
+                    <span>Compound Transaction Confirmed on Stellar!</span>
+                  </div>
+                  <p className="text-slate-300">
+                    Accrued fees reinvested and 1% keeper reward awarded.
+                  </p>
+                  {txReceipt.txHash && (
+                    <a
+                      href={`https://stellar.expert/explorer/testnet/tx/${txReceipt.txHash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-[#00E599] underline hover:text-white font-mono"
+                    >
+                      <span>Tx Hash: {txReceipt.txHash.slice(0, 16)}...</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  )}
+                </div>
+              )}
             </div>
-          </div>
 
-          {/* Pending Harvest Metrics */}
-          <div className="p-4 rounded-2xl bg-surface-light border border-surface-border space-y-3">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">Pending DEX Fees to Harvest:</span>
-              <span className="font-mono font-bold text-primary text-base">+${pendingFeesUsd}</span>
-            </div>
-
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">Estimated Share Price Growth:</span>
-              <span className="font-mono font-bold text-white">+{estimatedSharePriceBoost}%</span>
-            </div>
-
-            <div className="flex items-center justify-between text-xs pt-2 border-t border-surface-border">
-              <span className="text-stellar-cyan font-bold flex items-center space-x-1">
-                <Coins className="w-3.5 h-3.5" />
-                <span>Your Keeper Bounty Reward (1%):</span>
-              </span>
-              <span className="font-mono font-black text-stellar-cyan text-sm">+${estimatedKeeperBounty}</span>
-            </div>
-          </div>
-
-          {/* Harvest Action Button */}
-          <button
-            onClick={handleExecuteCompound}
-            disabled={isHarvesting}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-stellar-cyan hover:from-primary-light hover:to-stellar-cyan text-background font-black text-sm flex items-center justify-center space-x-2 shadow-glow-primary transition-all min-touch-target"
-          >
-            {isHarvesting ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin text-background" />
-                <span>Executing Soroban Compounder...</span>
-              </>
-            ) : !userAddress ? (
-              <span>Connect Wallet to Compound & Claim Bounty</span>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 text-background" />
-                <span>Trigger Auto-Compound & Claim Bounty</span>
-              </>
-            )}
-          </button>
-
-          {latestTxHash && (
-            <div className="p-3 bg-surface-light rounded-xl border border-surface-border flex items-center justify-between text-xs">
-              <span className="text-slate-400 font-medium">Last Tx Hash:</span>
-              <a
-                href={`${STELLAR_CONFIG.explorerBaseUrl}/tx/${latestTxHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-primary hover:underline flex items-center space-x-1"
+            {/* Compound Button */}
+            <div className="mt-8 pt-4 border-t border-white/[0.08]">
+              <button
+                onClick={handleCompound}
+                disabled={isExecuting}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#00E599] via-[#00D08A] to-[#00B074] py-4 text-sm font-bold text-[#06080D] shadow-lg shadow-[#00E599]/25 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50"
               >
-                <span>{latestTxHash.substring(0, 10)}...</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          )}
-
-        </div>
-
-        {/* Right 7 Cols: Live Keeper Execution Terminal */}
-        <div className="lg:col-span-7 glass-panel rounded-3xl border border-surface-border p-5 sm:p-6 flex flex-col justify-between space-y-4">
-          
-          <div>
-            {/* Terminal Window Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-surface-border mb-4">
-              <div className="flex items-center space-x-2">
-                <div className="flex space-x-1.5">
-                  <div className="w-3 h-3 rounded-full bg-red-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-green-500/80" />
-                </div>
-                <span className="text-xs font-mono font-bold text-slate-400 ml-2">
-                  lumex-keeper-daemon ~ testnet
-                </span>
-              </div>
-
-              <div className="flex items-center space-x-1.5 text-xs text-primary font-mono">
-                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span>Live Feed</span>
-              </div>
-            </div>
-
-            {/* Log Stream Area */}
-            <div className="bg-background/90 rounded-2xl p-4 font-mono text-xs text-slate-300 space-y-2 h-72 overflow-y-auto border border-surface-border">
-              {terminalLogs.map((log, index) => (
-                <div
-                  key={index}
-                  className={`leading-relaxed ${
-                    log.includes('SUCCESS')
-                      ? 'text-primary font-bold'
-                      : log.includes('ERROR')
-                      ? 'text-red-400 font-bold'
-                      : log.includes('Invoking')
-                      ? 'text-stellar-cyan'
-                      : 'text-slate-400'
-                  }`}
-                >
-                  {log}
-                </div>
-              ))}
+                {isExecuting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#06080D] border-t-transparent"></div>
+                    <span>Simulating & Executing On-Chain Compound...</span>
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-5 w-5" />
+                    <span>Compound Yield & Claim 1% Bounty</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-surface-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-slate-400 font-mono">
-            <span className="flex items-center space-x-1">
-              <Clock className="w-3 h-3 text-slate-400" />
-              <span>Interval: Continuous 15m trigger cycles</span>
-            </span>
-            <span className="text-primary font-bold">Protocol Status: 100% On-Chain</span>
+          {/* Keeper Architecture Specs Card */}
+          <div className="glass-panel-card rounded-3xl p-7 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2.5 border-b border-white/[0.08] pb-4">
+                <ShieldCheck className="h-5 w-5 text-[#00E599]" />
+                <h3 className="text-base font-bold text-white">How Keeper Loops Work</h3>
+              </div>
+
+              <ul className="mt-5 space-y-4 text-xs text-slate-300">
+                <li className="flex items-start gap-2.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-[#00E599] mt-1.5 shrink-0"></div>
+                  <span>
+                    <strong>Decentralized:</strong> Anyone or any bot can invoke `compound_yield` permissionlessly on Soroban.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-[#00E599] mt-1.5 shrink-0"></div>
+                  <span>
+                    <strong>Incentivized:</strong> 1% of the gross harvested DEX trading fees are minted directly to the caller as an execution bounty.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <div className="h-1.5 w-1.5 rounded-full bg-[#00E599] mt-1.5 shrink-0"></div>
+                  <span>
+                    <strong>Mathematical Share Growth:</strong> The remaining 99% is compounded into vault assets, increasing the redemption share price for all stakers.
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mt-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 text-[11px] text-slate-400">
+              Last Global Cycle: <span className="font-mono text-white">{lastCompoundTrigger || 'Active'}</span>
+            </div>
           </div>
-
         </div>
-
       </div>
     </section>
   );

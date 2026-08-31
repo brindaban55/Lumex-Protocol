@@ -1,314 +1,169 @@
-/**
- * ==============================================================================
- * Lumex Protocol — User Position & Portfolio Tracker Component
- * ==============================================================================
- * 
- * Displays active staker positions, accrued yield distributions, and vault actions:
- * - Desktop: Clean responsive table with deposited principal, shares, and APY.
- * - Mobile: Modular responsive cards with touch targets for Add, Withdraw, and Compound.
- * - Strict Zero-Mock Policy: When disconnected, displays clean empty state without phantom assets.
- */
-
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   ShieldCheck, 
-  Sparkles, 
-  Wallet, 
-  Coins
+  ArrowUpFromLine, 
+  TrendingUp, 
+  DollarSign, 
+  Clock, 
+  Zap,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
-import { VaultPool, UserPositionState } from '../types';
-import { WithdrawModal } from './WithdrawModal';
-import { DepositModal } from './DepositModal';
+import { UserPositionState, VaultPool } from '../types';
 
 interface UserPositionCardProps {
-  userAddress: string | null;
+  positions: UserPositionState[];
   pools: VaultPool[];
-  positions: { [poolId: string]: UserPositionState };
-  userSpendableBalance: number;
-  onDeposit: (poolId: string, amount: number) => Promise<string>;
-  onWithdraw: (poolId: string, shares: number) => Promise<string>;
-  onEmergencyWithdraw: (poolId: string) => Promise<string>;
-  onCompoundYield: (poolId: string) => Promise<string>;
-  onConnectWallet: () => void;
-  onRefreshBalances: () => void;
+  onWithdrawClick: (pool: VaultPool) => void;
+  onExploreVaults: () => void;
+  isLoading: boolean;
 }
 
 export const UserPositionCard: React.FC<UserPositionCardProps> = ({
-  userAddress,
-  pools,
   positions,
-  userSpendableBalance,
-  onDeposit,
-  onWithdraw,
-  onEmergencyWithdraw,
-  onCompoundYield,
-  onConnectWallet,
-  onRefreshBalances,
+  pools,
+  onWithdrawClick,
+  onExploreVaults,
+  isLoading,
 }) => {
-  const [selectedWithdrawPool, setSelectedWithdrawPool] = useState<VaultPool | null>(null);
-  const [selectedDepositPool, setSelectedDepositPool] = useState<VaultPool | null>(null);
+  const activePositions = (positions || []).filter((p) => Number(p.shares) > 0);
 
-  // Filter active staked positions
-  const activePoolPositions = pools
-    .map((pool) => ({
-      pool,
-      position: positions[pool.id],
-    }))
-    .filter((item) => item.position && item.position.shares > 0);
+  const totalDepositedUsd = activePositions.reduce((acc, pos) => {
+    return acc + (Number(pos.depositedAmount) || 0) * 0.12; // Approx USD
+  }, 0);
 
-  const totalUserDeposits = activePoolPositions.reduce(
-    (acc, curr) => acc + (curr.position?.depositedAmount || 0),
-    0
-  );
-  const totalUserYield = activePoolPositions.reduce(
-    (acc, curr) => acc + (curr.position?.accruedYield || 0),
-    0
-  );
+  const totalYieldClaimedUsd = activePositions.reduce((acc, pos) => {
+    return acc + (Number(pos.totalYieldClaimed) || 0) * 0.12;
+  }, 0);
+
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Your Active Staking Positions
-          </h2>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time on-chain position tracking, accrued yield shares, and non-custodial capital controls.
+    <section className="py-8">
+      <div className="layout-container">
+        {/* Section Header */}
+        <div className="border-b border-white/[0.08] pb-6 mb-8">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white">My Staked Positions & Portfolio</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Real-time Soroban smart contract yield positions and earned share growth.
           </p>
         </div>
-      </div>
 
-      {/* Disconnected State - STRICT ZERO-MOCK POLICY */}
-      {!userAddress ? (
-        <div className="glass-panel rounded-3xl border border-surface-border p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-5">
-          <div className="w-16 h-16 rounded-2xl bg-surface-light border border-surface-border flex items-center justify-center mx-auto text-slate-400">
-            <Wallet className="w-8 h-8" />
+        {/* Portfolio Summary Bar */}
+        <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-5">
+          <div className="glass-panel-card rounded-2xl p-6">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Portfolio Value</span>
+            <div className="mt-2 font-mono text-2xl sm:text-3xl font-extrabold text-white">
+              ${totalDepositedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <span className="text-xs text-[#00E599] font-medium mt-1 inline-block">Active Principal Staked</span>
           </div>
 
-          <div>
-            <h3 className="text-xl font-bold text-white">No Wallet Connected</h3>
-            <p className="text-sm text-slate-400 max-w-md mx-auto mt-2">
-              Connect your Freighter wallet or launch an instant 1-Click Guest Testnet account to view live on-chain positions and deposit into yield vaults.
-            </p>
+          <div className="glass-panel-card rounded-2xl p-6">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Cumulative Yield Claimed</span>
+            <div className="mt-2 font-mono text-2xl sm:text-3xl font-extrabold text-[#00E599]">
+              ${totalYieldClaimedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <span className="text-xs text-slate-400 font-medium mt-1 inline-block">Direct Payouts</span>
           </div>
 
-          <button
-            onClick={onConnectWallet}
-            className="px-6 py-3.5 rounded-xl bg-primary hover:bg-primary-light text-background font-bold text-sm shadow-glow-primary transition-all min-touch-target"
-          >
-            Connect Wallet
-          </button>
-        </div>
-      ) : activePoolPositions.length === 0 ? (
-        /* Connected but No Active Positions */
-        <div className="glass-panel rounded-3xl border border-surface-border p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-5">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
-            <Coins className="w-8 h-8" />
-          </div>
-
-          <div>
-            <h3 className="text-xl font-bold text-white">No Active Vault Deposits</h3>
-            <p className="text-sm text-slate-400 max-w-md mx-auto mt-2">
-              You haven't deposited into any Soroban yield vaults yet. Select a strategy from the Vaults section to start earning up to 31.8% dynamic APY.
-            </p>
+          <div className="glass-panel-card rounded-2xl p-6">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Vault Strategies</span>
+            <div className="mt-2 font-mono text-2xl sm:text-3xl font-extrabold text-blue-400">
+              {activePositions.length} Vaults
+            </div>
+            <span className="text-xs text-slate-400 font-medium mt-1 inline-block">Automated Reinvestment</span>
           </div>
         </div>
-      ) : (
-        /* Active Staker Portfolio View */
-        <div className="space-y-6">
-          
-          {/* Portfolio Summary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-            <div className="glass-panel p-6 rounded-2xl border border-surface-border">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Total Staked Principal
-              </span>
-              <div className="text-2xl sm:text-3xl font-black text-white font-mono mt-2">
-                ${totalUserDeposits.toFixed(2)}
-              </div>
-              <div className="text-xs text-slate-400 mt-1">Across {activePoolPositions.length} strategy vault(s)</div>
-            </div>
 
-            <div className="glass-panel p-6 rounded-2xl border border-surface-border">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Accumulated Fee Yield
-              </span>
-              <div className="text-2xl sm:text-3xl font-black text-primary font-mono mt-2 glow-emerald">
-                +${totalUserYield.toFixed(2)}
-              </div>
-              <div className="text-xs text-primary font-medium mt-1 flex items-center space-x-1">
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Reinvested into share valuation</span>
-              </div>
-            </div>
-
-            <div className="glass-panel p-6 rounded-2xl border border-surface-border">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Capital Safety
-              </span>
-              <div className="text-xl sm:text-2xl font-bold text-emerald-400 mt-2 flex items-center space-x-2">
-                <ShieldCheck className="w-6 h-6" />
-                <span>Non-Custodial</span>
-              </div>
-              <div className="text-xs text-slate-400 mt-1">Instant emergency exit anytime</div>
-            </div>
+        {/* Positions List */}
+        {isLoading ? (
+          <div className="glass-panel-card rounded-3xl p-12 text-center">
+            <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-[#00E599] border-t-transparent"></div>
+            <p className="mt-4 text-sm text-slate-300">Querying on-chain Soroban contract state...</p>
           </div>
-
-          {/* Desktop Table View */}
-          <div className="hidden md:block glass-panel rounded-3xl border border-surface-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-surface-light/80 text-xs uppercase font-bold text-slate-400 tracking-wider border-b border-surface-border">
-                  <tr>
-                    <th className="py-4 px-6">Strategy Pool</th>
-                    <th className="py-4 px-6">Deposited</th>
-                    <th className="py-4 px-6">Vault Shares</th>
-                    <th className="py-4 px-6">Accrued Yield</th>
-                    <th className="py-4 px-6">Net APY</th>
-                    <th className="py-4 px-6 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-border font-medium">
-                  {activePoolPositions.map(({ pool, position }) => (
-                    <tr key={pool.id} className="hover:bg-surface-light/40 transition-colors">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-9 h-9 rounded-xl bg-surface-light border border-surface-border flex items-center justify-center font-mono font-bold text-xs text-primary">
-                            {pool.assetA.symbol}
-                          </div>
-                          <div>
-                            <div className="font-bold text-white">{pool.name}</div>
-                            <div className="text-xs text-slate-400 font-mono">
-                              Staked {new Date(position.entryTimestamp).toLocaleDateString()}
-                            </div>
-                          </div>
+        ) : activePositions.length === 0 ? (
+          <div className="glass-panel-card rounded-3xl p-12 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.04] text-slate-400 mb-4">
+              <Layers className="h-8 w-8" />
+            </div>
+            <h3 className="text-lg font-bold text-white">No Active Staked Positions Found</h3>
+            <p className="mt-2 text-sm text-slate-400 max-w-md mx-auto">
+              Deposit into any of the automated yield strategy vaults to start earning continuous AMM fee yields.
+            </p>
+            <button
+              onClick={onExploreVaults}
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#00E599] px-6 py-3 text-xs font-bold text-[#06080D] shadow-md hover:bg-[#00C280] transition-all"
+            >
+              <span>Explore Active Vaults</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {activePositions.map((pos) => {
+              const matchedPool = pools.find((p) => p.id === pos.poolId);
+              return (
+                <div
+                  key={pos.poolId}
+                  className="glass-panel-card glass-panel-hover rounded-3xl p-7 flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00E599]/15 text-[#00E599]">
+                          <ShieldCheck className="h-5 w-5" />
                         </div>
-                      </td>
+                        <div>
+                          <h4 className="text-base font-bold text-white">{matchedPool?.name || pos.poolId}</h4>
+                          <span className="text-xs text-slate-400 font-mono">Vault ID: {pos.poolId}</span>
+                        </div>
+                      </div>
+                      <span className="rounded-full bg-[#00E599]/15 px-3 py-1 font-mono text-xs font-extrabold text-[#00E599]">
+                        {matchedPool ? `${matchedPool.totalApy.toFixed(1)}% APY` : 'Active'}
+                      </span>
+                    </div>
 
-                      <td className="py-4 px-6 font-mono font-bold text-white">
-                        {position.depositedAmount.toFixed(2)} {pool.assetA.symbol}
-                      </td>
+                    <div className="mt-6 grid grid-cols-2 gap-4">
+                      <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4">
+                        <span className="text-xs text-slate-400">Principal Staked:</span>
+                        <div className="mt-1 font-mono text-lg font-bold text-white">
+                          {pos.depositedAmount} XLM
+                        </div>
+                      </div>
 
-                      <td className="py-4 px-6 font-mono text-slate-300">
-                        {position.shares.toFixed(2)}
-                      </td>
+                      <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4">
+                        <span className="text-xs text-slate-400">Vault Shares Held:</span>
+                        <div className="mt-1 font-mono text-lg font-bold text-[#00E599]">
+                          {pos.shares}
+                        </div>
+                      </div>
+                    </div>
 
-                      <td className="py-4 px-6 font-mono font-bold text-primary">
-                        +{position.accruedYield.toFixed(2)} {pool.assetA.symbol}
-                      </td>
-
-                      <td className="py-4 px-6">
-                        <span className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono font-bold text-xs">
-                          {pool.totalApy.toFixed(1)}%
-                        </span>
-                      </td>
-
-                      <td className="py-4 px-6 text-right space-x-2">
-                        <button
-                          onClick={() => setSelectedDepositPool(pool)}
-                          className="px-3 py-1.5 rounded-lg bg-surface border border-surface-border hover:border-primary/40 text-xs font-bold text-slate-200 hover:text-primary transition-colors"
-                        >
-                          + Add
-                        </button>
-
-                        <button
-                          onClick={() => setSelectedWithdrawPool(pool)}
-                          className="px-3 py-1.5 rounded-lg bg-stellar-cyan/10 border border-stellar-cyan/20 hover:bg-stellar-cyan/20 text-xs font-bold text-stellar-cyan transition-colors"
-                        >
-                          Withdraw
-                        </button>
-
-                        <button
-                          onClick={() => onCompoundYield(pool.id)}
-                          className="px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 hover:bg-primary/20 text-xs font-bold text-primary transition-colors"
-                          title="Harvest fees & compound shares"
-                        >
-                          Compound
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Mobile Responsive Cards View */}
-          <div className="md:hidden space-y-4">
-            {activePoolPositions.map(({ pool, position }) => (
-              <div key={pool.id} className="glass-panel p-5 rounded-2xl border border-surface-border space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="font-bold text-white text-base">{pool.name}</div>
-                  <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono font-bold text-xs">
-                    {pool.totalApy.toFixed(1)}% APY
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-surface-border">
-                  <div>
-                    <span className="text-slate-400">Deposited:</span>
-                    <div className="font-mono font-bold text-white">{position.depositedAmount.toFixed(2)} {pool.assetA.symbol}</div>
+                    <div className="mt-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4">
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>Total Yield Claimed:</span>
+                        <span className="font-mono font-bold text-white">{pos.totalYieldClaimed} XLM</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-slate-400">Accrued Yield:</span>
-                    <div className="font-mono font-bold text-primary">+{position.accruedYield.toFixed(2)} {pool.assetA.symbol}</div>
+
+                  <div className="mt-6 pt-4 border-t border-white/[0.06] flex justify-end">
+                    {matchedPool && (
+                      <button
+                        onClick={() => onWithdrawClick(matchedPool)}
+                        className="flex items-center gap-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] px-5 py-2.5 text-xs font-bold text-white transition-all"
+                      >
+                        <ArrowUpFromLine className="h-4 w-4" />
+                        <span>Withdraw / Redeem</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <button
-                    onClick={() => setSelectedDepositPool(pool)}
-                    className="py-2.5 rounded-xl bg-surface border border-surface-border text-xs font-bold text-white text-center min-touch-target"
-                  >
-                    + Add
-                  </button>
-                  <button
-                    onClick={() => setSelectedWithdrawPool(pool)}
-                    className="py-2.5 rounded-xl bg-stellar-cyan/10 border border-stellar-cyan/30 text-stellar-cyan text-xs font-bold text-center min-touch-target"
-                  >
-                    Withdraw
-                  </button>
-                  <button
-                    onClick={() => onCompoundYield(pool.id)}
-                    className="py-2.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-bold text-center min-touch-target"
-                  >
-                    Compound
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-
-        </div>
-      )}
-
-      {/* Modals */}
-      {selectedWithdrawPool && (
-        <WithdrawModal
-          pool={selectedWithdrawPool}
-          userAddress={userAddress}
-          position={positions[selectedWithdrawPool.id]}
-          isOpen={!!selectedWithdrawPool}
-          onClose={() => setSelectedWithdrawPool(null)}
-          onWithdraw={onWithdraw}
-          onEmergencyWithdraw={onEmergencyWithdraw}
-          onRefreshBalances={onRefreshBalances}
-        />
-      )}
-
-      {selectedDepositPool && (
-        <DepositModal
-          pool={selectedDepositPool}
-          userAddress={userAddress}
-          userSpendableBalance={userSpendableBalance}
-          isOpen={!!selectedDepositPool}
-          onClose={() => setSelectedDepositPool(null)}
-          onDeposit={onDeposit}
-          onRefreshBalances={onRefreshBalances}
-        />
-      )}
-
+        )}
+      </div>
     </section>
   );
 };

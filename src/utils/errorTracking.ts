@@ -47,10 +47,11 @@ class ErrorTracker {
 
     if (/horizon|network error|failed to fetch/i.test(rawMsg)) {
       return {
-        userMessage: 'Stellar Testnet RPC is synchronizing or experiencing temporary latency. Please retry in a moment.',
+        userMessage: 'Stellar RPC Gateway is synchronizing or experiencing temporary latency. Please retry in a moment.',
         category: 'Horizon',
       };
     }
+
 
     if (/HostError|Simulation/i.test(rawMsg)) {
       return {

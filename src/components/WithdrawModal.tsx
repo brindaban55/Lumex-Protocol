@@ -14,35 +14,53 @@ import React, { useState } from 'react';
 import { X, ArrowUpRight, ShieldAlert, AlertTriangle, ExternalLink, Loader2, CheckCircle2 } from 'lucide-react';
 import { VaultPool, UserPositionState } from '../types';
 import { STELLAR_CONFIG } from '../config/stellar';
+import { useFreighter } from '../hooks/useFreighter';
+import { useGuestWallet } from '../hooks/useGuestWallet';
+import { useVaultContract } from '../hooks/useVaultContract';
 
 interface WithdrawModalProps {
   pool: VaultPool;
-  userAddress: string | null;
-  position: UserPositionState | undefined;
-  isOpen: boolean;
+  userAddress?: string | null;
+  position?: UserPositionState | undefined;
+  isOpen?: boolean;
   onClose: () => void;
-  onWithdraw: (poolId: string, shares: number) => Promise<string>;
-  onEmergencyWithdraw: (poolId: string) => Promise<string>;
-  onRefreshBalances: () => void;
+  onSuccess?: () => void;
+  onWithdraw?: (poolId: string, shares: number) => Promise<string>;
+  onEmergencyWithdraw?: (poolId: string) => Promise<string>;
+  onRefreshBalances?: () => void;
 }
 
 export const WithdrawModal: React.FC<WithdrawModalProps> = ({
   pool,
-  userAddress,
-  position,
-  isOpen,
+  userAddress: propUserAddress,
+  position: propPosition,
+  isOpen = true,
   onClose,
+  onSuccess,
   onWithdraw,
   onEmergencyWithdraw,
   onRefreshBalances,
 }) => {
+  const freighter = useFreighter();
+  const guestWallet = useGuestWallet();
+  
+  const activeAddress = propUserAddress || (freighter.isConnected ? freighter.publicKey : guestWallet.publicKey);
+  const signTxFn = freighter.isConnected ? freighter.signTx : guestWallet.signTx;
+  const { 
+    positions, 
+    withdraw: contractWithdraw, 
+    emergencyWithdraw: contractEmergencyWithdraw 
+  } = useVaultContract(activeAddress, signTxFn);
+
+  const position = propPosition || positions[pool.id];
+
   const [withdrawShares, setWithdrawShares] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isEmergency, setIsEmergency] = useState<boolean>(false);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  if (isOpen === false) return null;
 
   const totalUserShares = position?.shares || 0;
   const totalDeposited = position?.depositedAmount || 0;
@@ -63,11 +81,16 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
     setTxHash(null);
 
     try {
-      const hash = await onWithdraw(pool.id, parsedShares);
+      const hash = onWithdraw 
+        ? await onWithdraw(pool.id, parsedShares)
+        : await contractWithdraw(pool.id, parsedShares);
       setTxHash(hash);
-      onRefreshBalances();
+      if (onRefreshBalances) onRefreshBalances();
+      if (freighter.isConnected) freighter.refreshBalances();
+      if (guestWallet.isConnected) guestWallet.refreshGuestBalances();
+      if (onSuccess) onSuccess();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Withdrawal transaction failed on Stellar testnet.');
+      setErrorMessage(err.message || 'Withdrawal transaction failed on Stellar.');
     } finally {
       setIsSubmitting(false);
     }
@@ -79,15 +102,21 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
     setTxHash(null);
 
     try {
-      const hash = await onEmergencyWithdraw(pool.id);
+      const hash = onEmergencyWithdraw 
+        ? await onEmergencyWithdraw(pool.id)
+        : await contractEmergencyWithdraw(pool.id);
       setTxHash(hash);
-      onRefreshBalances();
+      if (onRefreshBalances) onRefreshBalances();
+      if (freighter.isConnected) freighter.refreshBalances();
+      if (guestWallet.isConnected) guestWallet.refreshGuestBalances();
+      if (onSuccess) onSuccess();
     } catch (err: any) {
-      setErrorMessage(err.message || 'Emergency exit failed on Stellar testnet.');
+      setErrorMessage(err.message || 'Emergency exit failed on Stellar.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-in fade-in duration-200">

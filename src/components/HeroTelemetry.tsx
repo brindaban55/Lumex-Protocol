@@ -1,159 +1,140 @@
-/**
- * ==============================================================================
- * Lumex Protocol — Dynamic Hero & Protocol Telemetry Component
- * ==============================================================================
- * 
- * Renders the headline value proposition and live protocol metrics:
- * - Real-time Total Value Locked (TVL) queried from Horizon DEX reserves
- * - 24-hour Compounded Yield & Reinvestment Velocity
- * - Dynamic Maximum APY (Base DEX Trading Fee + Soroban Auto-Compound Boost)
- * - Confirmed Ledger Height & Horizon Query Latency in milliseconds
- */
-
 import React from 'react';
 import { 
   TrendingUp, 
-  ShieldCheck, 
-  Coins, 
+  DollarSign, 
+  Activity, 
   Users, 
+  Layers, 
+  ShieldCheck, 
   Zap, 
-  ArrowUpRight, 
-  Clock, 
-  Activity
+  ArrowUpRight 
 } from 'lucide-react';
-import { ProtocolTelemetry } from '../types';
+import { ProtocolMetrics } from '../types';
 
 interface HeroTelemetryProps {
-  telemetry: ProtocolTelemetry;
+  metrics: ProtocolMetrics;
   onExploreVaults: () => void;
-  onOpenCompounder: () => void;
+  onLaunchKeeper: () => void;
 }
 
 export const HeroTelemetry: React.FC<HeroTelemetryProps> = ({
-  telemetry,
+  metrics,
   onExploreVaults,
-  onOpenCompounder,
+  onLaunchKeeper,
 }) => {
   return (
-    <div className="relative pt-6 sm:pt-8 pb-10 sm:pb-12 overflow-hidden">
-      {/* Background radial glow effects */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute top-1/3 left-1/4 w-[400px] h-[250px] bg-stellar-blue/10 rounded-full blur-[100px] pointer-events-none" />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        {/* Main Hero Header */}
-        <div className="text-center max-w-3xl mx-auto mb-8 sm:mb-10">
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-surface-light border border-primary/30 text-xs font-mono text-primary mb-6 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-            <span className="font-semibold uppercase tracking-wider">Stellar DEX Yield Optimization Layer</span>
+    <section className="relative overflow-hidden pt-8 pb-12">
+      <div className="layout-container">
+        {/* Hero Header & Value Proposition */}
+        <div className="mx-auto max-w-4xl text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#00E599]/30 bg-[#00E599]/10 px-4 py-1.5 text-xs font-semibold text-[#00E599] shadow-sm mb-6">
+            <Zap className="h-3.5 w-3.5" />
+            <span>STELLAR DEX AUTOMATED YIELD PROTOCOL</span>
           </div>
 
-          <h1 className="text-3xl xs:text-4xl sm:text-5xl lg:text-6xl font-black text-white tracking-tight leading-[1.15] mb-6">
-            Institutional Yield Vaults <br />
-            <span className="bg-gradient-to-r from-primary via-primary-light to-stellar-cyan bg-clip-text text-transparent">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
+            Institutional Yield Vaults <br className="hidden sm:inline" />
+            <span className="bg-gradient-to-r from-[#00E599] via-[#38EF7D] to-[#3B82F6] bg-clip-text text-transparent">
               Compounded on Soroban
             </span>
           </h1>
 
-          <p className="text-sm sm:text-base lg:text-lg text-slate-300 font-normal leading-relaxed mb-8 px-2">
-            Harness Stellar DEX Automated Market Maker (AMM) 0.3% liquidity fees, automated rebalancing, and decentralized keeper harvest loops with near-zero transaction costs.
+          <p className="mt-5 text-base sm:text-lg text-slate-300 font-normal leading-relaxed max-w-3xl mx-auto">
+            Harness Stellar DEX Automated Market Maker (AMM) 0.3% liquidity fees, automated
+            share rebalancing, and decentralized keeper harvest loops with sub-second finality.
           </p>
 
           {/* Action CTAs */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <button
               onClick={onExploreVaults}
-              className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl bg-primary hover:bg-primary-light text-background font-bold text-sm shadow-glow-primary hover:shadow-lg transition-all min-touch-target"
+              className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00E599] to-[#00B074] px-6 py-3.5 text-sm font-bold text-[#06080D] shadow-lg shadow-[#00E599]/25 hover:opacity-95 hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
+              <Layers className="h-4 w-4" />
               <span>Explore Active Vaults</span>
-              <ArrowUpRight className="w-4 h-4" />
+              <ArrowUpRight className="h-4 w-4" />
             </button>
 
             <button
-              onClick={onOpenCompounder}
-              className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3.5 rounded-xl bg-surface-light hover:bg-surface-border border border-surface-border text-white font-bold text-sm transition-all min-touch-target"
+              onClick={onLaunchKeeper}
+              className="flex items-center gap-2 rounded-xl border border-white/[0.12] bg-white/[0.03] px-6 py-3.5 text-sm font-bold text-white hover:bg-white/[0.08] hover:border-[#00E599]/40 transition-all"
             >
-              <Zap className="w-4 h-4 text-primary" />
+              <Zap className="h-4 w-4 text-[#00E599]" />
               <span>Launch Keeper Compounder</span>
             </button>
           </div>
         </div>
 
-        {/* Live Dynamic Protocol Telemetry Cards */}
-        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-6 mt-6 sm:mt-8">
-          
-          {/* Card 1: Total Value Locked */}
-          <div className="glass-panel p-5 rounded-2xl border border-surface-border glass-panel-hover">
-            <div className="flex items-center justify-between text-slate-400 mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider">Total Value Locked</span>
-              <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                <Coins className="w-4 h-4" />
+        {/* Full-Width Telemetry Metrics Grid */}
+        <div className="mt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Metric 1: TVL */}
+          <div className="glass-panel-card glass-panel-hover rounded-2xl p-6 relative overflow-hidden group">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Value Locked</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#00E599]/10 text-[#00E599]">
+                <DollarSign className="h-5 w-5" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-              ${telemetry.totalTvlUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            <div className="mt-4 font-mono text-3xl font-extrabold text-white tracking-tight">
+              ${metrics.totalValueLockedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="flex items-center space-x-1.5 mt-2 text-xs text-primary font-medium">
-              <TrendingUp className="w-3.5 h-3.5" />
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#00E599] font-medium">
+              <TrendingUp className="h-3.5 w-3.5" />
               <span>Live DEX AMM Reserves</span>
             </div>
           </div>
 
-          {/* Card 2: 24h Compounded Yield */}
-          <div className="glass-panel p-5 rounded-2xl border border-surface-border glass-panel-hover">
-            <div className="flex items-center justify-between text-slate-400 mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider">24h Fees Harvested</span>
-              <div className="w-8 h-8 rounded-lg bg-stellar-blue/10 border border-stellar-blue/20 flex items-center justify-center text-stellar-cyan">
-                <Zap className="w-4 h-4" />
+          {/* Metric 2: 24H Fees Harvested */}
+          <div className="glass-panel-card glass-panel-hover rounded-2xl p-6 relative overflow-hidden group">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">24h Fees Harvested</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
+                <Activity className="h-5 w-5" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-              ${telemetry.totalYieldHarvestedUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            <div className="mt-4 font-mono text-3xl font-extrabold text-white tracking-tight">
+              ${metrics.totalFeesHarvestedUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="flex items-center space-x-1.5 mt-2 text-xs text-slate-400 font-medium">
-              <Clock className="w-3.5 h-3.5 text-stellar-cyan" />
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-400 font-medium">
+              <Zap className="h-3.5 w-3.5" />
               <span>Continuous 15m Reinvestment</span>
             </div>
           </div>
 
-          {/* Card 3: Average Dynamic APY */}
-          <div className="glass-panel p-5 rounded-2xl border border-surface-border glass-panel-hover">
-            <div className="flex items-center justify-between text-slate-400 mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider">Max Vault APY</span>
-              <div className="w-8 h-8 rounded-lg bg-stellar-purple/10 border border-stellar-purple/20 flex items-center justify-center text-stellar-purple">
-                <TrendingUp className="w-4 h-4" />
+          {/* Metric 3: Max Vault APY */}
+          <div className="glass-panel-card glass-panel-hover rounded-2xl p-6 relative overflow-hidden group">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Max Vault APY</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
+                <TrendingUp className="h-5 w-5" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-primary font-mono tracking-tight glow-emerald">
-              {telemetry.avgProtocolApy.toFixed(1)}%
+            <div className="mt-4 font-mono text-3xl font-extrabold text-[#00E599] tracking-tight">
+              {metrics.averageApy.toFixed(1)}%
             </div>
-            <div className="flex items-center space-x-1.5 mt-2 text-xs text-slate-400 font-medium">
-              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+              <ShieldCheck className="h-3.5 w-3.5 text-[#00E599]" />
               <span>Base AMM + Compound Boost</span>
             </div>
           </div>
 
-          {/* Card 4: Active Stakers & Testnet Telemetry */}
-          <div className="glass-panel p-5 rounded-2xl border border-surface-border glass-panel-hover">
-            <div className="flex items-center justify-between text-slate-400 mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider">Active Stakers</span>
-              <div className="w-8 h-8 rounded-lg bg-stellar-gold/10 border border-stellar-gold/20 flex items-center justify-center text-stellar-gold">
-                <Users className="w-4 h-4" />
+          {/* Metric 4: Active Stakers */}
+          <div className="glass-panel-card glass-panel-hover rounded-2xl p-6 relative overflow-hidden group">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Stakers</span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+                <Users className="h-5 w-5" />
               </div>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-              {telemetry.activeStakersCount}
+            <div className="mt-4 font-mono text-3xl font-extrabold text-white tracking-tight">
+              {metrics.totalStakers}
             </div>
-            <div className="flex items-center space-x-1.5 mt-2 text-xs text-slate-400 font-mono">
-              <Activity className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Ledger #{telemetry.rpcBlockHeight} ({telemetry.horizonLatencyMs}ms)</span>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+              <span>Ledger #{metrics.activeLedger} ({metrics.ledgerLatencyMs}ms)</span>
             </div>
           </div>
-
         </div>
-
       </div>
-    </div>
+    </section>
   );
 };

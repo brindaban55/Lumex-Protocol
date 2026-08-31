@@ -38,6 +38,8 @@ export interface UserPositionState {
   lastHarvestTimestamp: number;
 }
 
+export type UserPositionData = UserPositionState;
+
 export interface ProtocolTelemetry {
   totalTvlUsd: number;
   totalYieldHarvestedUsd: number;
@@ -49,24 +51,36 @@ export interface ProtocolTelemetry {
   networkStatus: 'Operational' | 'Degraded' | 'Synchronizing';
 }
 
+export interface ProtocolMetrics {
+  totalValueLockedUsd: number;
+  totalFeesHarvestedUsd: number;
+  averageApy: number;
+  totalStakers: number;
+  activeLedger: number;
+  ledgerLatencyMs: number;
+  horizonLatencyMs: number;
+}
+
 export interface OnChainTransactionProof {
   id: string;
   txHash: string;
   userAddress: string;
-  action: 'Deposit' | 'Auto-Compound' | 'Withdraw' | 'Emergency-Exit' | 'Initialize-Pool';
+  action: 'Deposit' | 'Auto-Compound' | 'Withdraw' | 'Emergency-Exit' | 'Initialize-Pool' | string;
   amount: string;
   poolId: string;
   ledger: number;
   timestamp: string;
-  status: 'Confirmed' | 'Pending' | 'Failed';
+  status: 'Confirmed' | 'Pending' | 'Failed' | string;
   explorerUrl: string;
+  memo?: string;
 }
 
 export interface UserFeedbackItem {
   id: string;
   userAddress: string;
   rating: number; // 1-5
-  category: 'Yield Performance' | 'Transaction Speed' | 'UI & Aesthetics' | 'Security & Wallets' | 'General';
+  category: 'Yield Performance' | 'Transaction Speed' | 'UI & Aesthetics' | 'Security & Wallets' | 'General' | string;
   feedbackText: string;
   timestamp: string;
 }
+

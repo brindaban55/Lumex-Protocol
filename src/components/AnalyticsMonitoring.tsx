@@ -1,217 +1,191 @@
-/**
- * ==============================================================================
- * Lumex Protocol — Telemetry Monitoring & System Health Component
- * ==============================================================================
- * 
- * Provides live observability into protocol vitals:
- * - Horizon Node Query Latency (ms) & ledger synchronization state
- * - Soroban RPC simulation latency & latest block height
- * - Average confirmation speeds (3-5s SCP finality)
- * - Micro-fee breakdown (100 stroops = $0.00001 per tx)
- * - Live session activity feed tracking all on-chain actions
- */
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Activity, 
-  Server, 
+  LineChart, 
   Cpu, 
-  Zap, 
   Clock, 
-  CheckCircle2, 
   ExternalLink, 
-  ShieldCheck, 
-  BarChart3, 
-  Globe 
+  Layers, 
+  Server, 
+  CheckCircle2,
+  Zap,
+  Shield,
+  Activity
 } from 'lucide-react';
-import { ProtocolTelemetry, OnChainTransactionProof } from '../types';
+import { ProtocolMetrics } from '../types';
 import { STELLAR_CONFIG } from '../config/stellar';
+import { getTelemetryEvents } from '../utils/analytics';
 
 interface AnalyticsMonitoringProps {
-  telemetry: ProtocolTelemetry;
-  txHistory: OnChainTransactionProof[];
+  metrics: ProtocolMetrics;
 }
 
-export const AnalyticsMonitoring: React.FC<AnalyticsMonitoringProps> = ({
-  telemetry,
-  txHistory,
-}) => {
+export const AnalyticsMonitoring: React.FC<AnalyticsMonitoringProps> = ({ metrics }) => {
+  const [telemetryLogs, setTelemetryLogs] = useState(getTelemetryEvents());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTelemetryLogs(getTelemetryEvents());
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center space-x-2">
-            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+    <section className="py-8">
+      <div className="layout-container">
+        {/* Section Header */}
+        <div className="border-b border-white/[0.08] pb-6 mb-8">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
               Protocol Telemetry & System Health
             </h2>
-            <span className="text-[10px] uppercase font-bold tracking-widest px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="rounded-full bg-[#00E599]/15 px-3 py-1 text-xs font-bold text-[#00E599] border border-[#00E599]/30">
               Live Monitoring
             </span>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="mt-1 text-sm text-slate-400">
             Real-time performance metrics, network block confirmation latency, and Soroban contract telemetry.
           </p>
         </div>
-      </div>
 
-      {/* Grid of System Gauges */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        
-        {/* Horizon Endpoint Status */}
-        <div className="glass-panel p-5 rounded-3xl border border-surface-border">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider">Horizon Node</span>
-            <Server className="w-4 h-4 text-primary" />
-          </div>
-          <div className="flex items-baseline space-x-2">
-            <div className="text-2xl font-black text-white font-mono">{telemetry.horizonLatencyMs} ms</div>
-            <span className="text-xs text-primary font-semibold">Latency</span>
-          </div>
-          <div className="flex items-center space-x-1.5 mt-2 text-xs text-emerald-400 font-medium">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Horizon Testnet Synchronized</span>
-          </div>
-        </div>
-
-        {/* Soroban RPC Status */}
-        <div className="glass-panel p-5 rounded-3xl border border-surface-border">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider">Soroban RPC</span>
-            <Cpu className="w-4 h-4 text-stellar-cyan" />
-          </div>
-          <div className="flex items-baseline space-x-2">
-            <div className="text-2xl font-black text-white font-mono">#{telemetry.rpcBlockHeight}</div>
-            <span className="text-xs text-slate-400 font-mono">Ledger</span>
-          </div>
-          <div className="flex items-center space-x-1.5 mt-2 text-xs text-stellar-cyan font-medium">
-            <Activity className="w-3.5 h-3.5" />
-            <span>Sub-second RPC Simulation</span>
-          </div>
-        </div>
-
-        {/* Average Confirmation Speed */}
-        <div className="glass-panel p-5 rounded-3xl border border-surface-border">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider">Avg Confirmation</span>
-            <Clock className="w-4 h-4 text-stellar-purple" />
-          </div>
-          <div className="flex items-baseline space-x-2">
-            <div className="text-2xl font-black text-white font-mono">3.8 s</div>
-            <span className="text-xs text-slate-400">Finality</span>
-          </div>
-          <div className="flex items-center space-x-1.5 mt-2 text-xs text-primary font-medium">
-            <Zap className="w-3.5 h-3.5" />
-            <span>Stellar Consensus Protocol (SCP)</span>
-          </div>
-        </div>
-
-        {/* Average Transaction Cost */}
-        <div className="glass-panel p-5 rounded-3xl border border-surface-border">
-          <div className="flex items-center justify-between text-slate-400 mb-3">
-            <span className="text-xs font-bold uppercase tracking-wider">Network Fee</span>
-            <Globe className="w-4 h-4 text-stellar-gold" />
-          </div>
-          <div className="flex items-baseline space-x-2">
-            <div className="text-2xl font-black text-white font-mono">&lt; $0.00001</div>
-            <span className="text-xs text-slate-400">/ Tx</span>
-          </div>
-          <div className="flex items-center space-x-1.5 mt-2 text-xs text-emerald-400 font-medium">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span>100 Stroops Base Fee</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Contract & Environment Specs Card */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-8">
-        
-        <div className="lg:col-span-6 glass-panel rounded-3xl border border-surface-border p-6 space-y-4">
-          <h3 className="text-base font-black text-white flex items-center space-x-2">
-            <BarChart3 className="w-4 h-4 text-primary" />
-            <span>Contract Verification & Architecture Specs</span>
-          </h3>
-
-          <div className="space-y-3 text-xs font-medium">
-            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-light border border-surface-border">
-              <span className="text-slate-400">Deployed Soroban Contract:</span>
-              <a
-                href={`${STELLAR_CONFIG.explorerBaseUrl}/contract/${STELLAR_CONFIG.contractId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono font-bold text-primary hover:underline flex items-center space-x-1"
-              >
-                <span>{STELLAR_CONFIG.contractId.substring(0, 14)}...</span>
-                <ExternalLink className="w-3 h-3" />
-              </a>
+        {/* Infrastructure 4-Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+          <div className="glass-panel-card rounded-2xl p-6">
+            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <span>Horizon Node</span>
+              <Server className="h-4 w-4 text-[#00E599]" />
             </div>
-
-            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-light border border-surface-border">
-              <span className="text-slate-400">Runtime Protocol Version:</span>
-              <span className="font-mono font-bold text-white">Stellar Protocol 22/27</span>
+            <div className="mt-3 font-mono text-3xl font-black text-white">
+              {metrics.horizonLatencyMs} <span className="text-sm font-normal text-slate-400">ms</span>
             </div>
-
-            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-light border border-surface-border">
-              <span className="text-slate-400">State Storage Model:</span>
-              <span className="font-mono font-bold text-stellar-cyan">Persistent Storage + 180d TTL Extension</span>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-[#00E599]">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Horizon Synchronized</span>
             </div>
+          </div>
 
-            <div className="flex items-center justify-between p-3 rounded-xl bg-surface-light border border-surface-border">
-              <span className="text-slate-400">Vault Accounting Standard:</span>
-              <span className="font-mono font-bold text-white">ERC-4626 / SEP-41 Token Interface</span>
+          <div className="glass-panel-card rounded-2xl p-6">
+            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <span>Soroban RPC</span>
+              <Cpu className="h-4 w-4 text-blue-400" />
+            </div>
+            <div className="mt-3 font-mono text-3xl font-black text-white">
+              #{metrics.activeLedger}
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-400">
+              <Zap className="h-3.5 w-3.5" />
+              <span>Sub-second RPC Simulation</span>
+            </div>
+          </div>
+
+          <div className="glass-panel-card rounded-2xl p-6">
+            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <span>Avg Confirmation</span>
+              <Clock className="h-4 w-4 text-purple-400" />
+            </div>
+            <div className="mt-3 font-mono text-3xl font-black text-white">
+              3.8 <span className="text-sm font-normal text-slate-400">s</span>
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
+              <Shield className="h-3.5 w-3.5 text-[#00E599]" />
+              <span>Stellar Consensus Protocol (SCP)</span>
+            </div>
+          </div>
+
+          <div className="glass-panel-card rounded-2xl p-6">
+            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <span>Network Fee</span>
+              <Activity className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="mt-3 font-mono text-3xl font-black text-white">
+              &lt; $0.00001 <span className="text-sm font-normal text-slate-400">/ Tx</span>
+            </div>
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
+              <span>100 Stroops Base Fee</span>
             </div>
           </div>
         </div>
 
-        {/* Live Session Activity Feed */}
-        <div className="lg:col-span-6 glass-panel rounded-3xl border border-surface-border p-6 flex flex-col justify-between">
-          <div>
-            <h3 className="text-base font-black text-white flex items-center space-x-2 mb-4">
-              <Activity className="w-4 h-4 text-stellar-cyan" />
-              <span>Current Session Activity Feed</span>
-            </h3>
+        {/* Contract Specs & Telemetry Events Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Contract Architecture Specs */}
+          <div className="glass-panel-card rounded-3xl p-7">
+            <div className="flex items-center gap-2.5 border-b border-white/[0.08] pb-4 mb-5">
+              <Shield className="h-5 w-5 text-[#00E599]" />
+              <h3 className="text-base font-bold text-white">Contract Verification & Architecture Specs</h3>
+            </div>
 
-            {txHistory.length === 0 ? (
-              <div className="text-center py-8 text-xs text-slate-400">
-                No transactions executed in this session yet. Deposit, withdraw, or compound to see live transaction receipts.
+            <div className="space-y-3 text-xs">
+              <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 flex items-center justify-between">
+                <span className="text-slate-400">Deployed Soroban Contract:</span>
+                <a
+                  href={`https://stellar.expert/explorer/testnet/contract/${STELLAR_CONFIG.contractId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-mono font-bold text-[#00E599] hover:underline inline-flex items-center gap-1"
+                >
+                  <span>{STELLAR_CONFIG.contractId.slice(0, 12)}...{STELLAR_CONFIG.contractId.slice(-6)}</span>
+                  <ExternalLink className="h-3 w-3" />
+                </a>
               </div>
-            ) : (
-              <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
-                {txHistory.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="p-3 rounded-xl bg-surface-light border border-surface-border flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <span className="w-2 h-2 rounded-full bg-primary" />
-                      <span className="font-bold text-white">{tx.action}</span>
-                      <span className="font-mono text-slate-400">{tx.amount}</span>
-                    </div>
 
-                    <a
-                      href={tx.explorerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-primary hover:underline flex items-center space-x-1"
+              <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 flex items-center justify-between">
+                <span className="text-slate-400">Runtime Protocol Version:</span>
+                <span className="font-semibold text-white">Stellar Protocol 22 / 27</span>
+              </div>
+
+              <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 flex items-center justify-between">
+                <span className="text-slate-400">State Storage Model:</span>
+                <span className="font-semibold text-blue-400">Persistent Storage + 180d TTL Extension</span>
+              </div>
+
+              <div className="rounded-2xl bg-white/[0.02] border border-white/[0.06] p-4 flex items-center justify-between">
+                <span className="text-slate-400">Vault Accounting Standard:</span>
+                <span className="font-semibold text-purple-400">ERC-4626 / SEP-41 Token Interface</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Session Telemetry Activity Feed */}
+          <div className="glass-panel-card rounded-3xl p-7 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-2.5 border-b border-white/[0.08] pb-4 mb-5">
+                <Activity className="h-5 w-5 text-blue-400" />
+                <h3 className="text-base font-bold text-white">Current Session Activity Feed</h3>
+              </div>
+
+              <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+                {telemetryLogs.length === 0 ? (
+                  <p className="text-xs text-slate-500 py-8 text-center">
+                    No transactions executed in this session yet. Deposit, withdraw, or compound to see live transaction receipts.
+                  </p>
+                ) : (
+                  telemetryLogs.map((log, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl bg-white/[0.02] border border-white/[0.06] p-3 text-xs flex items-center justify-between"
                     >
-                      <span>Ledger #{tx.ledger}</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-[#00E599]"></span>
+                        <span className="font-semibold text-slate-200 capitalize">
+                          {log.name.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-slate-400">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
-            )}
-          </div>
+            </div>
 
-          <div className="text-[11px] text-slate-400 pt-3 border-t border-surface-border flex items-center justify-between">
-            <span>Network: Stellar Testnet</span>
-            <span className="text-primary font-semibold">100% Non-Custodial Vaults</span>
+            <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-slate-500">
+              <span>Network: Stellar Consensus Engine</span>
+              <span>100% Non-Custodial Vaults</span>
+            </div>
           </div>
         </div>
-
       </div>
-
     </section>
   );
 };
