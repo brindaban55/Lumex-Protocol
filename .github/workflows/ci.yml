@@ -15,14 +15,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust Toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 1.81.0
           targets: wasm32-unknown-unknown
 
       - name: Build Contract WASM Target
         run: |
           cargo build --manifest-path contracts/yield_vault/Cargo.toml --target wasm32-unknown-unknown --release
+
 
 
   frontend-build:
