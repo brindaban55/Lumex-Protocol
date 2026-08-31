@@ -65,17 +65,16 @@ export const TESTNET_TOKENS = {
     decimals: 7,
     isNative: true,
     contractId: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
-    icon: 'https://cryptologos.cc/logos/stellar-xlm-logo.svg?v=035',
+    icon: '/images/tokens/xlm.svg',
   },
   USDC: {
     symbol: 'USDC',
     name: 'USD Coin',
     decimals: 7,
-
     isNative: false,
     issuer: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
     contractId: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWUIPWNL2PBJKS2CGMN',
-    icon: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.svg?v=035',
+    icon: '/images/tokens/usdc.svg',
   },
   AQUA: {
     symbol: 'AQUA',
@@ -84,7 +83,7 @@ export const TESTNET_TOKENS = {
     isNative: false,
     issuer: 'GBNZILSTVQZ4R7IKDGDGGCGY2OK2KVGVI65OKKNEISJ74OXOGVU4DEXA',
     contractId: 'CA3D5KRYMCMIO7WXRX2WNTVXMQHIC7NQNNZTNFIUGL7YBM2W7XOJ4GLU',
-    icon: 'https://aqua.network/assets/img/aqua-logo.svg',
+    icon: '/images/tokens/aqua.svg',
   },
 };
 

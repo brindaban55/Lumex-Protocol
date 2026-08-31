@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00E599"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+    <filter id="shieldGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shieldGlow)" transform="translate(100, 80)">
+    <!-- Outer Shield Boundary -->
+    <path d="M200 20 L350 80 L350 250 Q350 360 200 420 Q50 360 50 250 L50 80 Z" fill="#0D1322" stroke="url(#shieldGrad)" stroke-width="6"/>
+    
+    <!-- Inner Security Core -->
+    <path d="M200 60 L310 110 L310 240 Q310 320 200 370 Q90 320 90 240 L90 110 Z" fill="#07090E" stroke="#00E599" stroke-width="2" stroke-opacity="0.6"/>
+    
+    <!-- Padlock Icon -->
+    <rect x="160" y="210" width="80" height="60" rx="14" fill="#00E599" opacity="0.9"/>
+    <path d="M175 210 V175 Q175 140 200 140 Q225 140 225 175 V210" stroke="#00E599" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <circle cx="200" cy="235" r="7" fill="#07090E"/>
+    <path d="M200 242 V255" stroke="#07090E" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

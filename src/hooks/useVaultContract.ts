@@ -23,6 +23,8 @@ import { STELLAR_CONFIG, rpcServer, horizonServer } from '../config/stellar';
 import { UserPositionState, OnChainTransactionProof } from '../types';
 import { analytics } from '../utils/analytics';
 import { errorTracker } from '../utils/errorTracking';
+import { telegramAlerts } from '../utils/telegramAlerts';
+
 
 export function useVaultContract(
   userAddress?: string | null,
@@ -195,8 +197,15 @@ export function useVaultContract(
         });
 
         analytics.track('deposit_success', { poolId, amount, txHash: sendRes.hash });
+        telegramAlerts.sendAlert({
+          action: 'Deposit',
+          poolId,
+          amount: `${amount.toFixed(2)} ${poolId.split('_')[0]}`,
+          txHash: sendRes.hash,
+        });
         setIsTransacting(false);
         return sendRes.hash;
+
       } catch (err: any) {
         setIsTransacting(false);
         const tracked = errorTracker.log(err);
@@ -282,6 +291,12 @@ export function useVaultContract(
         });
 
         analytics.track('withdraw_success', { poolId, shares: sharesToWithdraw, txHash: sendRes.hash });
+        telegramAlerts.sendAlert({
+          action: 'Withdraw',
+          poolId,
+          amount: `${sharesToWithdraw.toFixed(2)} Shares`,
+          txHash: sendRes.hash,
+        });
         setIsTransacting(false);
         return sendRes.hash;
       } catch (err: any) {
@@ -369,8 +384,15 @@ export function useVaultContract(
         });
 
         analytics.track('compound_success', { poolId, txHash: sendRes.hash });
+        telegramAlerts.sendAlert({
+          action: 'Auto-Compound',
+          poolId,
+          bounty: '1% Gross AMM Fees Awarded',
+          txHash: sendRes.hash,
+        });
         setIsTransacting(false);
         return { success: true, txHash: sendRes.hash };
+
       } catch (err: any) {
         setIsTransacting(false);
         const tracked = errorTracker.log(err);

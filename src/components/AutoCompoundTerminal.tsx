@@ -202,13 +202,26 @@ export const AutoCompoundTerminal: React.FC<AutoCompoundTerminalProps> = ({
                 <h3 className="text-base font-bold text-white">How Keeper Loops Work</h3>
               </div>
 
-              <ul className="mt-5 space-y-4 text-xs text-slate-300">
+              {/* 3D Keeper Graphic */}
+              <div className="my-4 rounded-2xl overflow-hidden glass-panel border border-purple-500/20 p-2 flex items-center justify-center relative h-36 bg-black/40">
+                <img
+                  src="/images/keeper-bot-3d.png"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/images/keeper-bot-3d.svg';
+                  }}
+                  alt="Decentralized Keeper Bot 3D"
+                  className="h-full object-contain filter drop-shadow-[0_8px_20px_rgba(126,87,194,0.35)]"
+                />
+              </div>
+
+              <ul className="mt-3 space-y-3.5 text-xs text-slate-300">
                 <li className="flex items-start gap-2.5">
                   <div className="h-1.5 w-1.5 rounded-full bg-[#00E599] mt-1.5 shrink-0"></div>
                   <span>
                     <strong>Decentralized:</strong> Anyone or any bot can invoke `compound_yield` permissionlessly on Soroban.
                   </span>
                 </li>
+
                 <li className="flex items-start gap-2.5">
                   <div className="h-1.5 w-1.5 rounded-full bg-[#00E599] mt-1.5 shrink-0"></div>
                   <span>
