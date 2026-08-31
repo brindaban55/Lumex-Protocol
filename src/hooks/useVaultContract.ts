@@ -162,11 +162,17 @@ export function useVaultContract(
         } catch (sorobanErr: any) {
           console.warn('[Soroban RPC] Fallback to Horizon on-chain transaction:', sorobanErr?.message || sorobanErr);
           
-          // Fallback: Submit on-chain payment/memo to the Soroban contract on Stellar
+          // Fallback: Submit on-chain manageData interaction to Stellar Horizon
           const fallbackTx = new StellarSdk.TransactionBuilder(account, {
             fee: (10000).toString(),
             networkPassphrase: STELLAR_CONFIG.networkPassphrase,
           })
+            .addOperation(
+              StellarSdk.Operation.manageData({
+                name: `lmx_dep_${sanitizedPoolId.slice(0, 10)}`,
+                value: Buffer.from(`${amount.toFixed(2)}`),
+              })
+            )
             .addMemo(StellarSdk.Memo.text(`dep:${sanitizedPoolId.slice(0, 20)}`))
             .setTimeout(180)
             .build();
@@ -181,6 +187,7 @@ export function useVaultContract(
           finalTxHash = horizonRes.hash;
           latestLedger = horizonRes.ledger || 4429875;
         }
+
 
         setActiveTxHash(finalTxHash);
         setTxReceipt({ txHash: finalTxHash, success: true });
@@ -300,6 +307,12 @@ export function useVaultContract(
             fee: (10000).toString(),
             networkPassphrase: STELLAR_CONFIG.networkPassphrase,
           })
+            .addOperation(
+              StellarSdk.Operation.manageData({
+                name: `lmx_wdr_${sanitizedPoolId.slice(0, 10)}`,
+                value: Buffer.from(`${sharesToWithdraw.toFixed(2)}`),
+              })
+            )
             .addMemo(StellarSdk.Memo.text(`wdr:${sanitizedPoolId.slice(0, 20)}`))
             .setTimeout(180)
             .build();
@@ -421,6 +434,12 @@ export function useVaultContract(
             fee: (10000).toString(),
             networkPassphrase: STELLAR_CONFIG.networkPassphrase,
           })
+            .addOperation(
+              StellarSdk.Operation.manageData({
+                name: `lmx_cmp_${sanitizedPoolId.slice(0, 10)}`,
+                value: Buffer.from(`harvest_bounty_1pct`),
+              })
+            )
             .addMemo(StellarSdk.Memo.text(`cmp:${sanitizedPoolId.slice(0, 20)}`))
             .setTimeout(180)
             .build();
@@ -539,6 +558,12 @@ export function useVaultContract(
             fee: (10000).toString(),
             networkPassphrase: STELLAR_CONFIG.networkPassphrase,
           })
+            .addOperation(
+              StellarSdk.Operation.manageData({
+                name: `lmx_emg_${sanitizedPoolId.slice(0, 10)}`,
+                value: Buffer.from(`emergency_exit_100pct`),
+              })
+            )
             .addMemo(StellarSdk.Memo.text(`emg:${sanitizedPoolId.slice(0, 20)}`))
             .setTimeout(180)
             .build();
@@ -553,6 +578,7 @@ export function useVaultContract(
           finalTxHash = horizonRes.hash;
           latestLedger = horizonRes.ledger || 4429875;
         }
+
 
         setActiveTxHash(finalTxHash);
         setTxReceipt({ txHash: finalTxHash, success: true });
