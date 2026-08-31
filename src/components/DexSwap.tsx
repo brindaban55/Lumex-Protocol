@@ -26,7 +26,9 @@ interface DexSwapProps {
   pools: VaultPool[];
   onSwapExecute: (fromToken: string, toToken: string, amountIn: number, amountOut: number) => Promise<string>;
   onRefreshBalances?: () => void;
+  onConnectWallet?: () => void;
 }
+
 
 interface TokenOption {
   symbol: string;
@@ -72,7 +74,9 @@ export const DexSwap: React.FC<DexSwapProps> = ({
   pools,
   onSwapExecute,
   onRefreshBalances,
+  onConnectWallet,
 }) => {
+
   const [fromTokenKey, setFromTokenKey] = useState<string>('XLM');
   const [toTokenKey, setToTokenKey] = useState<string>('USDC');
   const [fromAmount, setFromAmount] = useState<string>('10');
@@ -147,9 +151,14 @@ export const DexSwap: React.FC<DexSwapProps> = ({
 
   const handleExecuteSwap = async () => {
     if (!userAddress) {
-      setErrorMessage('Please connect your Freighter wallet to execute swaps.');
+      if (onConnectWallet) {
+        onConnectWallet();
+      } else {
+        setErrorMessage('Please connect your Freighter wallet to execute swaps.');
+      }
       return;
     }
+
 
     const numIn = parseFloat(fromAmount) || 0;
     if (numIn <= 0) {

@@ -27,13 +27,25 @@ interface NavbarProps {
   setActiveTab: (tab: string) => void;
   openFeedbackModal?: () => void;
   onOpenTour?: () => void;
+  freighterState?: ReturnType<typeof useFreighter>;
+  guestWalletState?: ReturnType<typeof useGuestWallet>;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab, setActiveTab, onOpenTour }) => {
-  const freighter = useFreighter();
-  const guestWallet = useGuestWallet();
+export const Navbar: React.FC<NavbarProps> = ({ 
+  activeTab, 
+  setActiveTab, 
+  onOpenTour,
+  freighterState,
+  guestWalletState,
+}) => {
+  const localFreighter = useFreighter();
+  const localGuestWallet = useGuestWallet();
+
+  const freighter = freighterState || localFreighter;
+  const guestWallet = guestWalletState || localGuestWallet;
 
   const [showWalletModal, setShowWalletModal] = useState(false);
+
   const [showDropdown, setShowDropdown] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

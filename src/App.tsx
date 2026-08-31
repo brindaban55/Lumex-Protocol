@@ -67,6 +67,8 @@ export function App() {
           setActiveTab={setActiveTab} 
           openFeedbackModal={() => setIsFeedbackOpen(true)} 
           onOpenTour={() => setIsTourOpen(true)}
+          freighterState={freighter}
+          guestWalletState={guestWallet}
         />
 
 
@@ -100,8 +102,11 @@ export function App() {
             <DexSwap
               userAddress={activeAddress}
               xlmBalance={freighter.isConnected ? freighter.xlmBalance : guestWallet.xlmBalance}
+              usdcBalance={freighter.isConnected ? freighter.usdcBalance : guestWallet.guestState.usdcBalance}
+              aquaBalance={freighter.isConnected ? freighter.aquaBalance : guestWallet.guestState.aquaBalance}
               pools={pools}
               onSwapExecute={swapTokens}
+              onConnectWallet={() => freighter.connect()}
               onRefreshBalances={() => {
                 if (freighter.isConnected) {
                   freighter.refreshBalances();
@@ -113,6 +118,7 @@ export function App() {
               }}
             />
           )}
+
 
 
           {activeTab === 'positions' && (
