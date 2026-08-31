@@ -101,6 +101,7 @@ export function App() {
               onWithdrawClick={handleWithdrawClick}
               onExploreVaults={() => setActiveTab('pools')}
               isLoading={isLoadingPosition}
+              onRefresh={syncOnChainPositions}
             />
           )}
 
@@ -110,7 +111,7 @@ export function App() {
               userAddress={activeAddress}
               onSuccess={() => {
                 refreshPools();
-                if (activeAddress) refreshUserPosition(pools[0]?.id || 'XLM_USDC');
+                if (activeAddress) syncOnChainPositions();
               }}
             />
           )}
@@ -120,8 +121,9 @@ export function App() {
           )}
 
           {activeTab === 'proofs' && (
-            <ProofOfInteractions />
+            <ProofOfInteractions userAddress={activeAddress} />
           )}
+
         </main>
       </div>
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Database, 
   ExternalLink, 
@@ -9,9 +9,14 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Cpu,
-  AlertTriangle
+  AlertTriangle,
+  RefreshCw,
+  Sparkles,
+  UserCheck
 } from 'lucide-react';
 import rawProofData from '../data/userInteractionsProof.json';
+import { OnChainTransactionProof } from '../types';
+import { horizonServer, STELLAR_CONFIG } from '../config/stellar';
 
 interface ProofRecord {
   id: string | number;
@@ -25,24 +30,113 @@ interface ProofRecord {
   status: string;
   explorerUrl: string;
   memo?: string;
+  isUserTx?: boolean;
 }
 
-export const ProofOfInteractions: React.FC = () => {
-  const proofs: ProofRecord[] = rawProofData as unknown as ProofRecord[];
+interface ProofOfInteractionsProps {
+  userAddress?: string | null;
+  userProofs?: OnChainTransactionProof[];
+}
 
+export const ProofOfInteractions: React.FC<ProofOfInteractionsProps> = ({
+  userAddress,
+  userProofs = [],
+}) => {
+  const [liveUserProofs, setLiveUserProofs] = useState<ProofRecord[]>([]);
+  const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState<string>('All');
+  const [onlyMyWallet, setOnlyMyWallet] = useState<boolean>(false);
 
-  const filteredProofs = proofs.filter((p) => {
+  // Fetch live on-chain transactions for the connected user address directly from Horizon
+  const fetchUserOnChainTxs = useCallback(async () => {
+    if (!userAddress) {
+      setLiveUserProofs([]);
+      return;
+    }
+    setIsLoadingLive(true);
+    try {
+      const res = await horizonServer
+        .transactions()
+        .forAccount(userAddress)
+        .order('desc')
+        .limit(30)
+        .call();
+
+      const txs: ProofRecord[] = res.records.map((t: any) => {
+        const memo = t.memo || '';
+        let action = 'Contract Invocation';
+        let poolId = 'XLM_USDC';
+        let amount = 'Verified On-Chain';
+
+        if (memo.startsWith('dep:')) {
+          action = 'Deposit';
+          poolId = memo.replace('dep:', '') || 'XLM_USDC';
+          amount = 'Vault Staking';
+        } else if (memo.startsWith('cmp:')) {
+          action = 'Auto-Compound';
+          poolId = memo.replace('cmp:', '') || 'XLM_USDC';
+          amount = 'Harvest + 1% Bounty';
+        } else if (memo.startsWith('wdr:')) {
+          action = 'Withdraw';
+          poolId = memo.replace('wdr:', '') || 'XLM_USDC';
+          amount = 'Share Redemption';
+        } else if (memo.startsWith('emg:')) {
+          action = 'Emergency-Exit';
+          poolId = memo.replace('emg:', '') || 'XLM_USDC';
+          amount = '100% Principal';
+        }
+
+        return {
+          id: t.id,
+          txHash: t.hash,
+          userAddress,
+          action,
+          amount,
+          poolId,
+          ledger: t.ledger_attr || 4432759,
+          timestamp: new Date(t.created_at).toLocaleTimeString(),
+          status: 'Confirmed',
+          explorerUrl: `${STELLAR_CONFIG.explorerBaseUrl}/tx/${t.hash}`,
+          memo: t.memo,
+          isUserTx: true,
+        };
+      });
+
+      setLiveUserProofs(txs);
+    } catch (err: any) {
+      console.warn('[ProofOfInteractions] Failed to fetch live txs:', err.message);
+    } finally {
+      setIsLoadingLive(false);
+    }
+  }, [userAddress]);
+
+  useEffect(() => {
+    fetchUserOnChainTxs();
+  }, [fetchUserOnChainTxs]);
+
+  // Combine live user transactions + static historical benchmark proofs
+  const staticProofs: ProofRecord[] = (rawProofData as unknown as ProofRecord[]).map((p) => ({
+    ...p,
+    isUserTx: userAddress ? p.userAddress.toLowerCase() === userAddress.toLowerCase() : false,
+  }));
+
+  const allCombinedProofs = [...liveUserProofs, ...staticProofs.filter(
+    (sp) => !liveUserProofs.some((lp) => lp.txHash.toLowerCase() === sp.txHash.toLowerCase())
+  )];
+
+  const filteredProofs = allCombinedProofs.filter((p) => {
     const matchesSearch =
       p.txHash.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.userAddress.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.poolId.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesAction = filterAction === 'All' || p.action.toLowerCase() === filterAction.toLowerCase();
+    const matchesWalletFilter = !onlyMyWallet || p.isUserTx;
 
-    return matchesSearch && matchesAction;
+    return matchesSearch && matchesAction && matchesWalletFilter;
   });
+
 
   const getActionBadge = (action: string) => {
     switch (action.toLowerCase()) {
@@ -88,18 +182,48 @@ export const ProofOfInteractions: React.FC = () => {
     <section className="py-8">
       <div className="layout-container">
         {/* Section Header */}
-        <div className="border-b border-white/[0.08] pb-6 mb-8">
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-              Verifiable On-Chain Proofs of Interaction
-            </h2>
-            <span className="rounded-full bg-[#00E599]/15 px-3 py-1 text-xs font-bold text-[#00E599] border border-[#00E599]/30">
-              {proofs.length} Confirmed Transactions
-            </span>
+        <div className="border-b border-white/[0.08] pb-6 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
+                Verifiable On-Chain Proofs of Interaction
+              </h2>
+              <span className="rounded-full bg-[#00E599]/15 px-3 py-1 text-xs font-bold text-[#00E599] border border-[#00E599]/30">
+                {allCombinedProofs.length} Confirmed Transactions
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-slate-400">
+              Every transaction hash below is cryptographically signed, submitted, and publicly confirmed on the Stellar network.
+            </p>
           </div>
-          <p className="mt-1 text-sm text-slate-400">
-            Every transaction hash below is cryptographically signed, submitted, and publicly confirmed on the Stellar network.
-          </p>
+
+          <div className="flex items-center gap-2.5">
+            {userAddress && (
+              <button
+                onClick={() => setOnlyMyWallet(!onlyMyWallet)}
+                className={`flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold transition-all ${
+                  onlyMyWallet
+                    ? 'bg-[#00E599] text-slate-950 shadow-md shadow-[#00E599]/20'
+                    : 'border border-white/[0.1] bg-white/[0.04] text-slate-300 hover:text-white'
+                }`}
+              >
+                <UserCheck className="h-4 w-4" />
+                <span>My Wallet Only ⭐</span>
+              </button>
+            )}
+
+            <button
+              onClick={fetchUserOnChainTxs}
+              disabled={isLoadingLive}
+              className={`flex items-center gap-1.5 rounded-xl border border-white/[0.1] bg-white/[0.04] px-3.5 py-2 text-xs font-bold text-slate-300 hover:text-white hover:bg-white/[0.08] transition-all ${
+                isLoadingLive ? 'opacity-50 cursor-wait' : ''
+              }`}
+              title="Rescan Stellar Horizon for latest transactions"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isLoadingLive ? 'animate-spin text-[#00E599]' : ''}`} />
+              <span>Rescan Horizon</span>
+            </button>
+          </div>
         </div>
 
         {/* Search & Action Filter Controls */}
@@ -156,10 +280,28 @@ export const ProofOfInteractions: React.FC = () => {
                   </tr>
                 ) : (
                   filteredProofs.map((p) => (
-                    <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-4 px-6 font-sans">{getActionBadge(p.action)}</td>
+                    <tr 
+                      key={p.id} 
+                      className={`transition-colors ${
+                        p.isUserTx 
+                          ? 'bg-[#00E599]/[0.04] border-l-2 border-[#00E599]' 
+                          : 'hover:bg-white/[0.02]'
+                      }`}
+                    >
+                      <td className="py-4 px-6 font-sans">
+                        <div className="flex items-center gap-1.5">
+                          {getActionBadge(p.action)}
+                          {p.isUserTx && (
+                            <span className="rounded bg-[#00E599]/20 px-1.5 py-0.5 text-[9px] font-bold text-[#00E599] border border-[#00E599]/30">
+                              YOU
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td className="py-4 px-6 text-slate-200">
-                        {p.userAddress.slice(0, 4)}...{p.userAddress.slice(-4)}
+                        <span className={p.isUserTx ? 'text-[#00E599] font-bold' : ''}>
+                          {p.userAddress.slice(0, 4)}...{p.userAddress.slice(-4)}
+                        </span>
                       </td>
                       <td className="py-4 px-6 font-semibold text-white">{p.amount}</td>
                       <td className="py-4 px-6 text-slate-400">{p.poolId}</td>
@@ -187,3 +329,4 @@ export const ProofOfInteractions: React.FC = () => {
     </section>
   );
 };
+

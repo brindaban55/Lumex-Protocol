@@ -7,7 +7,8 @@ import {
   Clock, 
   Zap,
   Layers,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react';
 import { UserPositionState, VaultPool } from '../types';
 
@@ -17,6 +18,7 @@ interface UserPositionCardProps {
   onWithdrawClick: (pool: VaultPool) => void;
   onExploreVaults: () => void;
   isLoading: boolean;
+  onRefresh?: () => void;
 }
 
 export const UserPositionCard: React.FC<UserPositionCardProps> = ({
@@ -25,8 +27,9 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
   onWithdrawClick,
   onExploreVaults,
   isLoading,
+  onRefresh,
 }) => {
-  const activePositions = (positions || []).filter((p) => Number(p.shares) > 0);
+  const activePositions = (positions || []).filter((p) => Number(p.shares) > 0 || Number(p.depositedAmount) > 0);
 
   const totalDepositedUsd = activePositions.reduce((acc, pos) => {
     return acc + (Number(pos.depositedAmount) || 0) * 0.12; // Approx USD
@@ -36,21 +39,36 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
     return acc + (Number(pos.totalYieldClaimed) || 0) * 0.12;
   }, 0);
 
-
   return (
     <section className="py-8">
       <div className="layout-container">
         {/* Section Header with 3D Graphic */}
         <div className="glass-panel-card rounded-3xl p-6 sm:p-8 mb-8 border border-white/[0.08] relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="relative z-10 max-w-xl">
-            <span className="rounded-full bg-[#00E599]/15 px-3 py-1 text-xs font-bold text-[#00E599] border border-[#00E599]/30 inline-block mb-3">
-              Institutional Portfolio Management
-            </span>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="rounded-full bg-[#00E599]/15 px-3 py-1 text-xs font-bold text-[#00E599] border border-[#00E599]/30 inline-block">
+                Institutional Portfolio Management
+              </span>
+              {onRefresh && (
+                <button
+                  onClick={onRefresh}
+                  disabled={isLoading}
+                  className={`flex items-center gap-1.5 rounded-full border border-white/[0.1] bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.08] transition-all ${
+                    isLoading ? 'opacity-50 cursor-wait' : ''
+                  }`}
+                  title="Sync with Stellar Horizon Blockchain"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin text-[#00E599]' : ''}`} />
+                  <span>Sync Horizon</span>
+                </button>
+              )}
+            </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">My Staked Positions & Portfolio</h2>
             <p className="mt-2 text-sm text-slate-300">
               Real-time Soroban smart contract yield positions, proportional share appreciation, and continuous 15-minute DEX fee compounding.
             </p>
           </div>
+
           <div className="w-40 sm:w-48 h-32 sm:h-36 relative shrink-0">
             <img
               src="/images/yield-growth-3d.png"
