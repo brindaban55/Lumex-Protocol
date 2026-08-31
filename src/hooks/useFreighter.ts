@@ -19,7 +19,9 @@ import {
   requestAccess as freighterRequestAccess,
   signTransaction as freighterSignTransaction,
   getNetwork as freighterGetNetwork,
+  getNetworkDetails as freighterGetNetworkDetails,
 } from '@stellar/freighter-api';
+
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { STELLAR_CONFIG, horizonServer } from '../config/stellar';
 
@@ -216,10 +218,18 @@ export function useFreighter() {
     async (xdr: string) => {
       if (!wallet.isConnected) throw new Error('Wallet not connected');
 
+      let activePassphrase = STELLAR_CONFIG.networkPassphrase || StellarSdk.Networks.TESTNET;
+      try {
+        const details = await freighterGetNetworkDetails();
+        if (details && details.networkPassphrase) {
+          activePassphrase = details.networkPassphrase;
+        }
+      } catch (e) {}
+
       const { signedTxXdr, error } = await freighterSignTransaction(xdr, {
-        networkPassphrase: STELLAR_CONFIG.networkPassphrase || StellarSdk.Networks.TESTNET,
-        address: wallet.address || undefined,
-      });
+        networkPassphrase: activePassphrase,
+        accountToSign: wallet.address || undefined,
+      } as any);
 
       if (error) {
         const tracked = errorTracker.log(error);
@@ -229,6 +239,7 @@ export function useFreighter() {
     },
     [wallet.isConnected, wallet.address]
   );
+
 
 
 
