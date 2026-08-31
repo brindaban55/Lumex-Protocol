@@ -18,12 +18,14 @@
  */
 
 import { useState, useCallback } from 'react';
+import { Buffer } from 'buffer';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { STELLAR_CONFIG, rpcServer, horizonServer } from '../config/stellar';
 import { UserPositionState, OnChainTransactionProof } from '../types';
 import { analytics } from '../utils/analytics';
 import { errorTracker } from '../utils/errorTracking';
 import { telegramAlerts } from '../utils/telegramAlerts';
+
 
 
 export function useVaultContract(
