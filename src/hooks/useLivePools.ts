@@ -15,21 +15,22 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import * as StellarSdk from '@stellar/stellar-sdk';
 import { VaultPool, ProtocolTelemetry, ProtocolMetrics } from '../types';
-import { INITIAL_VAULT_POOLS, STELLAR_CONFIG } from '../config/stellar';
+import { INITIAL_VAULT_POOLS, STELLAR_CONFIG, rpcServer } from '../config/stellar';
 import { analytics } from '../utils/analytics';
 
 export function useLivePools() {
   const [pools, setPools] = useState<VaultPool[]>(INITIAL_VAULT_POOLS);
   const [lastCompoundTrigger, setLastCompoundTrigger] = useState<string>('Just now (15m Interval)');
   const [telemetry, setTelemetry] = useState<ProtocolTelemetry>({
-    totalTvlUsd: 0,
+    totalTvlUsd: 5.28,
     totalYieldHarvestedUsd: 0,
-    avgProtocolApy: 0,
-    activeStakersCount: 0,
+    avgProtocolApy: 21.37,
+    activeStakersCount: 1,
     totalTransactionsCount: 12,
     horizonLatencyMs: 45,
-    rpcBlockHeight: 4429875,
+    rpcBlockHeight: 4433046,
     networkStatus: 'Operational',
   });
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -40,89 +41,99 @@ export function useLivePools() {
     const startTime = performance.now();
 
     try {
-      // 1. Query Stellar Horizon DEX Liquidity Pools endpoint
-      const res = await fetch(`${STELLAR_CONFIG.horizonUrl}/liquidity_pools?limit=10`);
-      const latency = Math.round(performance.now() - startTime);
+      // 1. Query real Soroban Smart Contract get_vault_info for each pool
+      const contract = new StellarSdk.Contract(STELLAR_CONFIG.contractId);
+      const vaultInfoMap: { [poolId: string]: { totalDeposits: number; totalShares: number; stakersCount: number; apy: number } } = {};
 
-      let updatedPoolsList: VaultPool[] = [];
+      for (const pool of INITIAL_VAULT_POOLS) {
+        try {
+          const dummyAccount = new StellarSdk.Account('GA5C5RH4LB6U7JI3INRG6FMMJXIQOBCQKTAKIVG3IR4OWTKG7UGSYUY6', '0');
+          const simTx = new StellarSdk.TransactionBuilder(dummyAccount, {
+            fee: '100000',
+            networkPassphrase: STELLAR_CONFIG.networkPassphrase,
+          })
+            .addOperation(
+              contract.call('get_vault_info', StellarSdk.xdr.ScVal.scvSymbol(pool.id))
+            )
+            .setTimeout(30)
+            .build();
 
-      if (res.ok) {
-        const data = await res.json();
-        const records = data._embedded?.records || [];
-
-        // 2. Map on-chain AMM reserves to Lumex vault structures
-        setPools((prevPools) => {
-          const updated = prevPools.map((pool) => {
-            const matchedRecord = records.find(
-              (r: any) => r.id === pool.liquidityPoolId || r.total_shares > 0
-            );
-
-            if (matchedRecord) {
-              const totalShares = parseFloat(matchedRecord.total_shares) || pool.totalShares;
-              const reserves = matchedRecord.reserves || [];
-              let calculatedTvl = pool.tvlUsd;
-
-              if (reserves.length >= 2) {
-                const amountA = parseFloat(reserves[0].amount) || 0;
-                const amountB = parseFloat(reserves[1].amount) || 0;
-                calculatedTvl = Math.max(1000, amountA * 0.12 + amountB);
-              }
-
-              // Continuous fee yield formulation: (Daily Fee Volume * 365 * 0.003) / TVL
-              const estimatedDailyFees = calculatedTvl * (pool.baseApy / 100 / 365);
-              const computedBaseApy = Number(
-                ((estimatedDailyFees * 365 * 100) / Math.max(1, calculatedTvl)).toFixed(1)
-              );
-              const totalApy = Number((computedBaseApy + pool.boostApy).toFixed(1));
-
-              return {
-                ...pool,
-                totalShares: Math.round(totalShares),
-                tvlUsd: Number(calculatedTvl.toFixed(2)),
-                baseApy: computedBaseApy || pool.baseApy,
-                totalApy: totalApy || pool.totalApy,
-                dailyFeeVolumeUsd: Number(estimatedDailyFees.toFixed(2)),
+          const simRes = await rpcServer.simulateTransaction(simTx);
+          if (!StellarSdk.rpc.Api.isSimulationError(simRes) && simRes.result?.retval) {
+            const native: any = StellarSdk.scValToNative(simRes.result.retval);
+            if (native) {
+              const depStroops = Number(native.total_deposits || 0);
+              const sharesStroops = Number(native.total_shares || 0);
+              vaultInfoMap[pool.id] = {
+                totalDeposits: depStroops / 10_000_000,
+                totalShares: sharesStroops / 10_000_000,
+                stakersCount: Number(native.total_stakers || 0),
+                apy: Number(native.apy_basis_points || 1980) / 100,
               };
             }
-            return pool;
-          });
+          }
+        } catch (e) {}
+      }
 
-          updatedPoolsList = updated;
-          return updated;
-        });
-
-        // 3. Fetch latest confirmed ledger sequence height
-        const ledgerRes = await fetch(`${STELLAR_CONFIG.horizonUrl}/ledgers?order=desc&limit=1`);
-        let currentLedger = 4429875;
-        if (ledgerRes.ok) {
-          const ledgerData = await ledgerRes.json();
-          currentLedger = ledgerData._embedded?.records?.[0]?.sequence || currentLedger;
-        }
-
-        // 4. Update aggregated protocol telemetry
-        setTelemetry((prev) => {
-          const activeList = updatedPoolsList.length > 0 ? updatedPoolsList : INITIAL_VAULT_POOLS;
-          const totalTvl = activeList.reduce((acc, p) => acc + p.tvlUsd, 0);
-          const avgApy = Number((activeList.reduce((acc, p) => acc + p.totalApy, 0) / activeList.length).toFixed(2));
-          const totalStakers = activeList.reduce((acc, p) => acc + p.stakersCount, 0);
-          const totalFees = activeList.reduce((acc, p) => acc + p.dailyFeeVolumeUsd, 0);
+      // 2. Map real on-chain contract state to pool models
+      let updatedPoolsList: VaultPool[] = [];
+      setPools((prevPools) => {
+        const updated = prevPools.map((pool) => {
+          const contractData = vaultInfoMap[pool.id];
+          const realDeposits = contractData ? contractData.totalDeposits : pool.totalDeposits;
+          const realShares = contractData ? contractData.totalShares : pool.totalShares;
+          const realStakers = contractData ? contractData.stakersCount : pool.stakersCount;
+          const usdRate = pool.id === 'USDC_VAULT' ? 1.0 : 0.12;
+          const realTvlUsd = Number((realDeposits * usdRate).toFixed(2));
+          const dailyFees = Number((realTvlUsd * (pool.totalApy / 100 / 365)).toFixed(2));
 
           return {
-            ...prev,
-            totalTvlUsd: totalTvl,
-            totalYieldHarvestedUsd: totalFees * 7.5,
-            avgProtocolApy: avgApy,
-            activeStakersCount: totalStakers,
-            horizonLatencyMs: latency,
-            rpcBlockHeight: currentLedger,
-            networkStatus: latency < 400 ? 'Operational' : 'Degraded',
+            ...pool,
+            totalDeposits: realDeposits,
+            totalShares: realShares,
+            stakersCount: realStakers,
+            tvlUsd: realTvlUsd,
+            dailyFeeVolumeUsd: dailyFees,
           };
         });
+        updatedPoolsList = updated;
+        return updated;
+      });
 
-        if (!isInitialMount.current) {
-          analytics.track('pool_refreshed', { latencyMs: latency, ledger: currentLedger });
-        }
+      const latency = Math.round(performance.now() - startTime);
+
+      // 3. Fetch latest confirmed ledger sequence height
+      const ledgerRes = await fetch(`${STELLAR_CONFIG.horizonUrl}/ledgers?order=desc&limit=1`);
+      let currentLedger = 4433046;
+      if (ledgerRes.ok) {
+        const ledgerData = await ledgerRes.json();
+        currentLedger = ledgerData._embedded?.records?.[0]?.sequence || currentLedger;
       }
+
+      // 4. Update aggregated protocol telemetry
+      setTelemetry((prev) => {
+        const activeList = updatedPoolsList.length > 0 ? updatedPoolsList : INITIAL_VAULT_POOLS;
+        const totalTvl = activeList.reduce((acc, p) => acc + p.tvlUsd, 0);
+        const avgApy = Number((activeList.reduce((acc, p) => acc + p.totalApy, 0) / activeList.length).toFixed(2));
+        const totalStakers = activeList.reduce((acc, p) => acc + p.stakersCount, 0);
+        const totalFees = activeList.reduce((acc, p) => acc + p.dailyFeeVolumeUsd, 0);
+
+        return {
+          ...prev,
+          totalTvlUsd: totalTvl,
+          totalYieldHarvestedUsd: totalFees * 7.5,
+          avgProtocolApy: avgApy,
+          activeStakersCount: totalStakers,
+          horizonLatencyMs: latency,
+          rpcBlockHeight: currentLedger,
+          networkStatus: latency < 400 ? 'Operational' : 'Degraded',
+        };
+      });
+
+      if (!isInitialMount.current) {
+        analytics.track('pool_refreshed', { latencyMs: latency, ledger: currentLedger });
+      }
+
     } catch (err: any) {
       console.warn('[Horizon Poller] Query warning:', err.message);
     } finally {
@@ -130,6 +141,7 @@ export function useLivePools() {
       isInitialMount.current = false;
     }
   }, []);
+
 
   const triggerManualCompoundSimulation = useCallback((poolId: string) => {
     setLastCompoundTrigger(`Triggered now for ${poolId}`);

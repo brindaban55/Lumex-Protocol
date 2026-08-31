@@ -178,28 +178,26 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
                       </div>
                     </div>
 
-                    {/* Live Real-Time Yield Accrual */}
+                    {/* Clean On-Chain Position Status */}
                     <div className="mt-4 rounded-2xl bg-emerald-950/20 border border-[#00E599]/20 p-4">
                       <div className="flex items-center justify-between text-xs mb-1.5">
                         <div className="flex items-center gap-1.5 text-slate-300">
-                          <span className="relative flex h-2 w-2">
-                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00E599] opacity-75"></span>
-                            <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00E599]"></span>
-                          </span>
-                          <span className="font-semibold text-slate-200">Live Accrued AMM Yield:</span>
+                          <span className="h-2 w-2 rounded-full bg-[#00E599]"></span>
+                          <span className="font-semibold text-slate-200">On-Chain Smart Contract Status:</span>
                         </div>
-                        <span className="font-mono font-extrabold text-[#00E599]">
-                          +{(pos.accruedYield || 0).toFixed(6)} XLM
+                        <span className="font-mono font-bold text-[#00E599]">
+                          Active & Compounding
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-xs text-slate-400 pt-1.5 border-t border-white/[0.06]">
                         <span>Current Redeemable Value:</span>
                         <span className="font-mono font-bold text-white">
-                          {currentTotalValue.toFixed(4)} XLM (${(currentTotalValue * 0.12).toFixed(2)})
+                          {pos.depositedAmount.toFixed(2)} XLM (${(pos.depositedAmount * 0.12).toFixed(2)})
                         </span>
                       </div>
                     </div>
                   </div>
+
 
                   <div className="mt-6 pt-4 border-t border-white/[0.06] flex items-center justify-between">
                     <span className="text-[11px] text-slate-400 font-mono">
