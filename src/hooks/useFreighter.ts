@@ -1,3 +1,17 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Freighter Wallet Integration Hook
+ * ==============================================================================
+ * 
+ * Provides production integration with Freighter Browser Extension.
+ * Adheres strictly to Zero-Mock principles:
+ * - On connection: Queries live native and SAC token balances from Horizon.
+ * - Enforces Stellar base reserve calculation: (2 + subentries) * 0.5 XLM + 0.1 XLM safety buffer.
+ * - On disconnect: Purges all addresses and balances (no phantom balances).
+ * 
+ * @see https://developers.stellar.org/docs/tools/developer-tools/wallets/freighter
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import {
   isConnected as freighterIsConnected,
@@ -7,6 +21,8 @@ import {
   getNetwork as freighterGetNetwork,
 } from '@stellar/freighter-api';
 import { STELLAR_CONFIG, horizonServer } from '../config/stellar';
+import { analytics } from '../utils/analytics';
+import { errorTracker } from '../utils/errorTracking';
 
 export interface WalletState {
   isConnected: boolean;
@@ -37,7 +53,9 @@ export function useFreighter() {
     error: null,
   });
 
-  // Query live on-chain balances from Horizon
+  /**
+   * Queries real-time on-chain balances from Horizon testnet server.
+   */
   const fetchLiveBalances = useCallback(async (pubKey: string) => {
     try {
       const account = await horizonServer.loadAccount(pubKey);
@@ -70,7 +88,7 @@ export function useFreighter() {
         error: null,
       }));
     } catch (err: any) {
-      console.warn('Account not yet funded or not found on testnet:', err.message);
+      console.warn('[Freighter] Account not yet funded or not found on testnet:', err.message);
       setWallet((prev) => ({
         ...prev,
         xlmBalance: 0,
@@ -82,7 +100,9 @@ export function useFreighter() {
     }
   }, []);
 
-  // Check initial connection status without triggering unwanted popups
+  /**
+   * Checks initial extension presence without triggering unwanted user popups.
+   */
   useEffect(() => {
     let isMounted = true;
     async function checkStatus() {
@@ -127,7 +147,9 @@ export function useFreighter() {
     };
   }, [fetchLiveBalances]);
 
-  // Connect wallet action with explicit user prompt
+  /**
+   * Explicit user connect action with permission request.
+   */
   const connectWallet = useCallback(async () => {
     setWallet((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
@@ -151,20 +173,25 @@ export function useFreighter() {
         isLoading: false,
       }));
 
+      analytics.track('wallet_connected', { walletType: 'freighter', address: accessRes.address });
       await fetchLiveBalances(accessRes.address);
       return accessRes.address;
     } catch (err: any) {
+      const tracked = errorTracker.log(err);
       setWallet((prev) => ({
         ...prev,
         isLoading: false,
-        error: err.message || 'Failed to connect wallet',
+        error: tracked.message,
       }));
       throw err;
     }
   }, [fetchLiveBalances]);
 
-  // Disconnect wallet: STRICT ZERO-MOCK POLICY - purges all holdings and addresses
+  /**
+   * Disconnects Freighter wallet and purges all holdings.
+   */
   const disconnectWallet = useCallback(() => {
+    analytics.track('wallet_disconnected', { walletType: 'freighter', address: wallet.address });
     setWallet({
       isConnected: false,
       address: null,
@@ -178,16 +205,21 @@ export function useFreighter() {
       isLoading: false,
       error: null,
     });
-  }, [wallet.isFreighterInstalled]);
+  }, [wallet.isFreighterInstalled, wallet.address]);
 
-  // Sign transaction
+  /**
+   * Signs XDR transaction payload via Freighter.
+   */
   const signTx = useCallback(
     async (xdr: string) => {
       if (!wallet.isConnected) throw new Error('Wallet not connected');
       const { signedTxXdr, error } = await freighterSignTransaction(xdr, {
         networkPassphrase: STELLAR_CONFIG.networkPassphrase,
       });
-      if (error) throw new Error(error.message || 'User rejected transaction signature');
+      if (error) {
+        const tracked = errorTracker.log(error);
+        throw new Error(tracked.message || 'User rejected transaction signature');
+      }
       return signedTxXdr;
     },
     [wallet.isConnected]

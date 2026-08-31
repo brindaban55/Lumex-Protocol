@@ -1,3 +1,19 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Main Application Shell & State Controller
+ * ==============================================================================
+ * 
+ * Orchestrates multi-wallet connectivity, Horizon DEX telemetry streams,
+ * Soroban contract invocation life-cycle, and responsive view routing.
+ * 
+ * View Structure:
+ * - Vaults: Active AMM strategy cards, APY analytics, and deposit/withdrawal modals.
+ * - Portfolio: Real-time user position tracker and non-custodial capital redemption.
+ * - Terminal: Decentralized keeper harvest daemon with 1% bounty distributor.
+ * - Analytics: RPC/Horizon latency monitoring, block height, and protocol vitals.
+ * - Proofs: Verifiable table of on-chain testnet transactions.
+ */
+
 import React, { useState } from 'react';
 import { Navbar } from './components/Navbar';
 import { HeroTelemetry } from './components/HeroTelemetry';
@@ -14,12 +30,9 @@ import { useVaultContract } from './hooks/useVaultContract';
 import { STELLAR_CONFIG } from './config/stellar';
 import { 
   Zap, 
-  ShieldCheck, 
   ExternalLink, 
-  Github, 
-  MessageSquare,
-  Sparkles,
-  AlertCircle
+  MessageSquare, 
+  AlertCircle 
 } from 'lucide-react';
 
 export function App() {
@@ -131,7 +144,7 @@ export function App() {
             </div>
             <button
               onClick={clearError}
-              className="text-xs font-bold underline hover:text-white"
+              className="text-xs font-bold underline hover:text-white min-touch-target flex items-center"
             >
               Dismiss
             </button>
@@ -213,7 +226,7 @@ export function App() {
       />
 
       {/* Footer */}
-      <footer className="border-t border-surface-border bg-surface-light/50 py-12 mt-16">
+      <footer className="border-t border-surface-border bg-surface-light/50 py-10 sm:py-12 mt-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
           
           <div className="flex items-center space-x-3">
@@ -266,4 +279,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;

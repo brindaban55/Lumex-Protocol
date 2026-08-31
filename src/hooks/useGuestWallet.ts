@@ -1,6 +1,20 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — 1-Click Guest Testnet Keypair Hook
+ * ==============================================================================
+ * 
+ * Provides an instantaneous, zero-install testing flow for evaluators and users:
+ * 1. Generates a fresh cryptographic Ed25519 keypair in memory.
+ * 2. Invokes Stellar Testnet Friendbot to fund the account with 10,000 testnet XLM.
+ * 3. Signs transactions locally via `StellarSdk.Keypair.sign()` without browser extensions.
+ * 4. Persists secret key in browser `sessionStorage` for seamless page reloads.
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { STELLAR_CONFIG, horizonServer, TESTNET_TOKENS } from '../config/stellar';
+import { STELLAR_CONFIG, horizonServer } from '../config/stellar';
+import { analytics } from '../utils/analytics';
+import { errorTracker } from '../utils/errorTracking';
 
 const GUEST_SECRET_KEY_STORAGE = 'lumex_guest_secret_key';
 
@@ -59,11 +73,13 @@ export function useGuestWallet() {
         error: null,
       }));
     } catch (err: any) {
-      console.warn('Guest account not yet loaded:', err.message);
+      console.warn('[Guest Account] Not yet ingested on ledger:', err.message);
     }
   }, []);
 
-  // Restore guest wallet from session storage if exists
+  /**
+   * Restores guest wallet from session storage if previously initialized.
+   */
   useEffect(() => {
     const savedSecret = sessionStorage.getItem(GUEST_SECRET_KEY_STORAGE);
     if (savedSecret) {
@@ -82,7 +98,9 @@ export function useGuestWallet() {
     }
   }, [fetchGuestBalances]);
 
-  // Create and fund a new guest testnet keypair via Friendbot
+  /**
+   * Generates and funds a brand-new cryptographic testnet keypair via Friendbot.
+   */
   const createAndFundGuest = useCallback(async () => {
     setGuestState((prev) => ({ ...prev, isFunding: true, error: null }));
     try {
@@ -106,23 +124,28 @@ export function useGuestWallet() {
         isFunding: false,
       }));
 
-      // Wait 1.5s for ledger ingestion then query live balances
+      analytics.track('guest_wallet_funded', { address: pubKey });
+
+      // Allow 1.5s for ledger ingestion before querying balances
       setTimeout(() => {
         fetchGuestBalances(pubKey);
       }, 1500);
 
       return pubKey;
     } catch (err: any) {
+      const tracked = errorTracker.log(err);
       setGuestState((prev) => ({
         ...prev,
         isFunding: false,
-        error: err.message || 'Failed to fund guest testnet account',
+        error: tracked.message,
       }));
-      throw err;
+      throw new Error(tracked.message);
     }
   }, [fetchGuestBalances]);
 
-  // Sign transaction locally using guest keypair
+  /**
+   * Signs XDR transaction payload locally using the memory keypair.
+   */
   const signGuestTx = useCallback(
     async (xdr: string) => {
       if (!guestState.secretKey) throw new Error('No active guest secret key found');
@@ -134,8 +157,13 @@ export function useGuestWallet() {
     [guestState.secretKey]
   );
 
-  // Clear guest account
+  /**
+   * Purges guest keypair from session.
+   */
   const clearGuest = useCallback(() => {
+    if (guestState.publicKey) {
+      analytics.track('wallet_disconnected', { walletType: 'guest', address: guestState.publicKey });
+    }
     sessionStorage.removeItem(GUEST_SECRET_KEY_STORAGE);
     setGuestState({
       isGuestActive: false,
@@ -148,7 +176,7 @@ export function useGuestWallet() {
       isFunding: false,
       error: null,
     });
-  }, []);
+  }, [guestState.publicKey]);
 
   return {
     guestState,

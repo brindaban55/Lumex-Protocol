@@ -1,4 +1,16 @@
-import React, { useState } from 'react';
+/**
+ * ==============================================================================
+ * Lumex Protocol — Navigation & Multi-Wallet Manager Component
+ * ==============================================================================
+ * 
+ * Implements a responsive, device-aware navigation header:
+ * - Desktop: Exposes Freighter browser extension integration & 1-Click Guest Mode.
+ * - Mobile: Offers 1-Click Guest Testnet Keypair + LOBSTR Mobile deep-link flow.
+ * - Real-time spendable XLM balance display (strictly protected against base reserves).
+ * - Interactive tab routing for Vaults, Positions, Terminal, Analytics, and On-Chain Proofs.
+ */
+
+import React, { useState, useEffect } from 'react';
 import { 
   Zap, 
   Wallet, 
@@ -11,9 +23,12 @@ import {
   Menu, 
   X,
   MessageSquare,
-  Sparkles
+  Sparkles,
+  Smartphone
 } from 'lucide-react';
 import { STELLAR_CONFIG } from '../config/stellar';
+import { isMobileDevice, getWalletDeepLink } from '../utils/deviceDetection';
+import { analytics } from '../utils/analytics';
 
 interface NavbarProps {
   userAddress: string | null;
@@ -44,8 +59,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   setActiveTab,
   onOpenFeedback,
 }) => {
-  const [isWalletMenuOpen, setIsWalletMenuOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isWalletMenuOpen, setIsWalletMenuOpen] = useState<boolean>(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  useEffect(() => {
+    setIsMobile(isMobileDevice());
+  }, []);
 
   const shortenAddress = (addr: string) => {
     return `${addr.substring(0, 4)}...${addr.substring(addr.length - 4)}`;
@@ -59,14 +79,20 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'proofs', label: 'On-Chain Proofs', icon: ExternalLink },
   ];
 
+  const handleTabClick = (tabId: string) => {
+    setActiveTab(tabId);
+    setIsMobileMenuOpen(false);
+    analytics.track('tab_switched', { targetTab: tabId });
+  };
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-surface-border bg-background/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-40 w-full border-b border-surface-border bg-background/85 backdrop-blur-2xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         
-        {/* Brand & Logo */}
+        {/* Brand & Protocol Logo */}
         <div className="flex items-center space-x-8">
           <div 
-            onClick={() => setActiveTab('vaults')}
+            onClick={() => handleTabClick('vaults')}
             className="flex items-center space-x-3 cursor-pointer group"
           >
             <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-primary-dark via-primary to-stellar-cyan flex items-center justify-center shadow-glow-primary group-hover:scale-105 transition-transform duration-300">
@@ -91,8 +117,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`flex items-center space-x-2 px-3.5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                  onClick={() => handleTabClick(item.id)}
+                  className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
                     isActive
                       ? 'text-primary bg-surface-light border border-primary/20 shadow-sm'
                       : 'text-slate-300 hover:text-white hover:bg-surface-light/50'
@@ -118,7 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* User Feedback Modal Button */}
           <button
             onClick={onOpenFeedback}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-surface border border-surface-border hover:border-primary/30 text-slate-300 hover:text-primary transition-colors text-xs font-semibold"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-surface border border-surface-border hover:border-primary/30 text-slate-300 hover:text-primary transition-colors text-xs font-semibold"
           >
             <MessageSquare className="w-3.5 h-3.5" />
             <span>Feedback</span>
@@ -157,7 +183,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="absolute right-0 mt-2 w-72 rounded-2xl glass-panel p-4 shadow-2xl z-50 animate-in fade-in slide-in-from-top-2">
                   <div className="pb-3 border-b border-surface-border">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                      Connected Account ({walletType === 'freighter' ? 'Freighter Wallet' : '1-Click Guest Keypair'})
+                      Connected ({walletType === 'freighter' ? 'Freighter Wallet' : '1-Click Guest Keypair'})
                     </div>
                     <div className="font-mono text-xs text-white break-all bg-background/60 p-2 rounded-lg border border-surface-border">
                       {userAddress}
@@ -170,7 +196,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <span className="font-mono font-bold text-white">{xlmBalance.toFixed(4)} XLM</span>
                     </div>
                     <div className="flex justify-between text-slate-300">
-                      <span>Spendable (after 0.5 XLM/reserve):</span>
+                      <span>Spendable (after reserve):</span>
                       <span className="font-mono font-bold text-primary">{spendableXlmBalance.toFixed(4)} XLM</span>
                     </div>
                   </div>
@@ -213,12 +239,12 @@ export const Navbar: React.FC<NavbarProps> = ({
 
               {/* Connect Options Dropdown */}
               {isWalletMenuOpen && (
-                <div className="absolute right-0 mt-2 w-80 rounded-2xl glass-panel p-4 shadow-2xl z-50 space-y-2.5">
+                <div className="absolute right-0 mt-2 w-80 rounded-2xl glass-panel p-4 shadow-2xl z-50 space-y-2.5 animate-in fade-in slide-in-from-top-2">
                   <div className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">
-                    Select Connection Method
+                    Select Stellar Wallet
                   </div>
 
-                  {/* Option 1: Freighter */}
+                  {/* Option 1: Freighter (Desktop Extension) */}
                   <button
                     onClick={() => {
                       setIsWalletMenuOpen(false);
@@ -265,26 +291,45 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                     </div>
                   </button>
+
+                  {/* Option 3: Mobile LOBSTR / WalletConnect Guide */}
+                  {isMobile && (
+                    <a
+                      href={getWalletDeepLink('lobstr')}
+                      className="w-full flex items-center justify-between p-3 rounded-xl bg-surface border border-surface-border hover:border-stellar-cyan/40 transition-all text-left group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-9 h-9 rounded-lg bg-stellar-cyan/10 border border-stellar-cyan/30 flex items-center justify-center text-stellar-cyan">
+                          <Smartphone className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-white">Open in LOBSTR App</div>
+                          <div className="text-xs text-slate-400">Mobile dApp browser link</div>
+                        </div>
+                      </div>
+                    </a>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Mobile Hamburger Menu */}
+        {/* Mobile Hamburger Menu Trigger */}
         <div className="flex md:hidden items-center space-x-2">
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2.5 rounded-lg bg-surface border border-surface-border text-slate-300 hover:text-white"
+            className="p-2.5 rounded-xl bg-surface border border-surface-border text-slate-300 hover:text-white min-touch-target flex items-center justify-center"
+            aria-label="Toggle Navigation Menu"
           >
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Navigation Drawer */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t border-surface-border bg-surface-light/95 backdrop-blur-2xl px-4 py-6 space-y-4 animate-in slide-in-from-top-4">
+        <div className="md:hidden border-t border-surface-border bg-surface-light/95 backdrop-blur-2xl px-4 py-6 space-y-4 animate-slide-up">
           <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -292,11 +337,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               return (
                 <button
                   key={item.id}
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-base font-semibold ${
+                  onClick={() => handleTabClick(item.id)}
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-base font-semibold min-touch-target ${
                     isActive
                       ? 'text-primary bg-surface border border-primary/20'
                       : 'text-slate-300 hover:bg-surface/50'
@@ -309,43 +351,76 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </nav>
 
-          <div className="pt-4 border-t border-surface-border space-y-2">
+          <div className="pt-4 border-t border-surface-border space-y-2.5">
             {!userAddress ? (
               <>
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    onConnectFreighter();
-                  }}
-                  className="w-full py-3 rounded-xl bg-primary text-background font-bold text-sm text-center"
-                >
-                  Connect Freighter Wallet
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMobileMenuOpen(false);
                     onConnectGuest();
                   }}
-                  className="w-full py-3 rounded-xl bg-stellar-blue/20 border border-stellar-blue/40 text-stellar-cyan font-bold text-sm text-center"
+                  disabled={isGuestFunding}
+                  className="w-full py-3.5 rounded-xl bg-primary text-background font-bold text-sm text-center shadow-glow-primary min-touch-target flex items-center justify-center space-x-2"
                 >
-                  Launch 1-Click Guest Testnet Account
+                  <UserCheck className="w-4 h-4" />
+                  <span>{isGuestFunding ? 'Funding Guest Account...' : 'Launch 1-Click Guest Testnet Account'}</span>
                 </button>
-              </>
-            ) : (
-              <div className="p-3 bg-surface rounded-xl border border-surface-border space-y-2">
-                <div className="text-xs text-slate-400 font-mono break-all">{userAddress}</div>
-                <div className="text-sm font-bold text-white">Spendable: {spendableXlmBalance.toFixed(2)} XLM</div>
+
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    onDisconnect();
+                    onConnectFreighter();
                   }}
-                  className="w-full py-2 rounded-lg bg-red-500/20 text-red-400 text-xs font-bold"
+                  className="w-full py-3.5 rounded-xl bg-surface border border-surface-border text-slate-200 font-bold text-sm text-center min-touch-target flex items-center justify-center space-x-2"
                 >
-                  Disconnect Wallet
+                  <Wallet className="w-4 h-4" />
+                  <span>Connect Freighter Extension</span>
                 </button>
+
+                <a
+                  href={getWalletDeepLink('lobstr')}
+                  className="w-full py-3 rounded-xl bg-stellar-blue/10 border border-stellar-blue/30 text-stellar-cyan font-semibold text-xs text-center flex items-center justify-center space-x-1.5"
+                >
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>Open in LOBSTR Mobile App</span>
+                </a>
+              </>
+            ) : (
+              <div className="p-4 bg-surface rounded-2xl border border-surface-border space-y-2.5">
+                <div className="text-xs text-slate-400 font-mono break-all">{userAddress}</div>
+                <div className="text-sm font-bold text-white">Spendable: {spendableXlmBalance.toFixed(2)} XLM</div>
+                <div className="flex space-x-2 pt-1">
+                  <a
+                    href={`${STELLAR_CONFIG.explorerBaseUrl}/account/${userAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2.5 text-center rounded-xl bg-surface-light border border-surface-border text-xs font-bold text-slate-300"
+                  >
+                    Explorer
+                  </a>
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      onDisconnect();
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-red-500/20 text-red-400 text-xs font-bold"
+                  >
+                    Disconnect
+                  </button>
+                </div>
               </div>
             )}
+
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                onOpenFeedback();
+              }}
+              className="w-full py-3 rounded-xl bg-surface/50 border border-surface-border text-slate-300 text-xs font-bold flex items-center justify-center space-x-1.5"
+            >
+              <MessageSquare className="w-3.5 h-3.5" />
+              <span>Submit Product Feedback</span>
+            </button>
           </div>
         </div>
       )}

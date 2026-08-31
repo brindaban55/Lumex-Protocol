@@ -1,23 +1,63 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Stellar & Soroban Architecture Configuration
+ * ==============================================================================
+ * 
+ * This module manages the network connectivity, RPC/Horizon endpoints, token metadata,
+ * and base reserve calculations for the Lumex Yield Optimizer on Stellar Testnet.
+ * 
+ * Key Architectural Decisions:
+ * 1. Dual Engine Support:
+ *    - Horizon REST API: High-throughput ledger queries, account balances, and AMM liquidity pool statistics.
+ *    - Soroban JSON-RPC: WASM smart contract simulation, transaction assembly, footprint generation, and state polling.
+ * 
+ * 2. Base Reserve Protection Guard:
+ *    - On Stellar, every account requires a base reserve:
+ *      Minimum Reserve = (2 + subentry_count) * 0.5 XLM
+ *    - To prevent `tx_insufficient_balance` errors during contract deposits, the frontend
+ *      automatically enforces spendable balances = (native_balance - minimum_reserve - 0.1 XLM gas buffer).
+ * 
+ * 3. SEP-41 / SAC Token Standard:
+ *    - Classic Stellar assets (XLM, USDC, AQUA) are bridged to Soroban smart contracts via
+ *      the Stellar Asset Contract (SAC) layer.
+ * 
+ * @see https://developers.stellar.org/docs/learn/fundamentals/lumens#minimum-balance
+ * @see https://developers.stellar.org/docs/tokens/stellar-asset-contract
+ */
+
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { VaultPool } from '../types';
 
 export const STELLAR_CONFIG = {
-  network: 'testnet',
-  networkPassphrase: StellarSdk.Networks.TESTNET,
-  horizonUrl: 'https://horizon-testnet.stellar.org',
-  rpcUrl: 'https://soroban-testnet.stellar.org',
-  friendbotUrl: 'https://friendbot.stellar.org',
-  explorerBaseUrl: 'https://stellar.expert/explorer/testnet',
-  // Deployed YieldVault Soroban Contract on Testnet
-  contractId: 'CBJNWXHYA2BIPW5LVDQO3KTYEQNXUG557YV35T6B7Z7KEMWUPC6S37J4',
-  baseReservePerEntry: 0.5, // 0.5 XLM per subentry
-  minAccountReserve: 1.0,   // Base account reserve 1.0 XLM
-  gasSafetyBuffer: 0.1,     // 0.1 XLM safety buffer for transaction fees
+  network: (import.meta.env.VITE_STELLAR_NETWORK as string) || 'testnet',
+  networkPassphrase: (import.meta.env.VITE_STELLAR_NETWORK_PASSPHRASE as string) || StellarSdk.Networks.TESTNET,
+  horizonUrl: (import.meta.env.VITE_HORIZON_URL as string) || 'https://horizon-testnet.stellar.org',
+  rpcUrl: (import.meta.env.VITE_SOROBAN_RPC_URL as string) || 'https://soroban-testnet.stellar.org',
+  friendbotUrl: (import.meta.env.VITE_FRIENDBOT_URL as string) || 'https://friendbot.stellar.org',
+  explorerBaseUrl: (import.meta.env.VITE_EXPLORER_BASE_URL as string) || 'https://stellar.expert/explorer/testnet',
+  
+  // Deployed YieldVault Soroban Contract ID on Testnet
+  contractId: (import.meta.env.VITE_CONTRACT_ID as string) || 'CBJNWXHYA2BIPW5LVDQO3KTYEQNXUG557YV35T6B7Z7KEMWUPC6S37J4',
+  
+  // Stellar Reserve Constants (Protocol 20+)
+  baseReservePerEntry: 0.5, // 0.5 XLM per active trustline / signers / data subentry
+  minAccountReserve: 1.0,   // Base account reserve: 2 base reserves = 1.0 XLM
+  gasSafetyBuffer: 0.1,     // 0.1 XLM reserved for fee bump / contract invocation gas
 };
 
+/**
+ * Singleton Horizon Server instance for account state and ledger streaming.
+ */
 export const horizonServer = new StellarSdk.Horizon.Server(STELLAR_CONFIG.horizonUrl);
+
+/**
+ * Singleton Soroban RPC Server instance for contract simulation & footprint preparation.
+ */
 export const rpcServer = new StellarSdk.rpc.Server(STELLAR_CONFIG.rpcUrl);
 
+/**
+ * Testnet Tokens mapped to their canonical Stellar Asset Contracts (SAC).
+ */
 export const TESTNET_TOKENS = {
   XLM: {
     symbol: 'XLM',
@@ -47,6 +87,9 @@ export const TESTNET_TOKENS = {
   },
 };
 
+/**
+ * Initial Vault Pools configurations harvested from Stellar DEX AMM Pools.
+ */
 export const INITIAL_VAULT_POOLS: VaultPool[] = [
   {
     id: 'XLM_USDC',

@@ -1,19 +1,42 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Soroban Vault Contract Client & Transaction Life-Cycle Hook
+ * ==============================================================================
+ * 
+ * Manages the complete lifecycle of Soroban smart contract invocations:
+ * 1. Transaction Assembly: Constructing `TransactionBuilder` with contract invocations.
+ * 2. Footprint Simulation: `rpcServer.simulateTransaction` to determine ledger keys, TTL, and resource fees.
+ * 3. Footprint Preparation: `rpcServer.prepareTransaction` to populate auth entries and footprint.
+ * 4. User Signature: Delegating to Freighter extension or local guest keypair.
+ * 5. Submission & Polling: `rpcServer.sendTransaction` followed by `rpcServer.pollTransaction`.
+ * 6. Telemetry & On-Chain Proofs: Automatically recording confirmed transactions to protocol state.
+ * 
+ * Adheres strictly to Zero-Mock principles: All operations execute real cryptographic
+ * transactions verified on the Stellar testnet ledger.
+ * 
+ * @see https://developers.stellar.org/docs/learn/smart-contract-internals/rpc
+ */
+
 import { useState, useCallback } from 'react';
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { STELLAR_CONFIG, rpcServer, horizonServer } from '../config/stellar';
 import { UserPositionState, OnChainTransactionProof } from '../types';
+import { analytics } from '../utils/analytics';
+import { errorTracker } from '../utils/errorTracking';
 
 export function useVaultContract(
   userAddress: string | null,
   signTransactionFn: ((xdr: string) => Promise<string>) | null
 ) {
   const [positions, setPositions] = useState<{ [poolId: string]: UserPositionState }>({});
-  const [isTransacting, setIsTransacting] = useState(false);
+  const [isTransacting, setIsTransacting] = useState<boolean>(false);
   const [txHistory, setTxHistory] = useState<OnChainTransactionProof[]>([]);
   const [activeTxHash, setActiveTxHash] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch on-chain user position for a pool
+  /**
+   * Fetches on-chain user position struct via Soroban RPC simulation.
+   */
   const fetchUserPosition = useCallback(
     async (poolId: string) => {
       if (!userAddress) {
@@ -22,13 +45,10 @@ export function useVaultContract(
       }
 
       try {
-        // Query local/stored position state or mock response from contract RPC
         const contract = new StellarSdk.Contract(STELLAR_CONFIG.contractId);
-        // Position lookup key
         const userScVal = StellarSdk.Address.fromString(userAddress).toScVal();
         const poolScVal = StellarSdk.nativeToScVal(poolId, { type: 'symbol' });
 
-        // Simulate get_user_position call
         const account = await horizonServer.loadAccount(userAddress);
         const tx = new StellarSdk.TransactionBuilder(account, {
           fee: StellarSdk.BASE_FEE,
@@ -39,30 +59,57 @@ export function useVaultContract(
           .build();
 
         const sim = await rpcServer.simulateTransaction(tx);
-        if (StellarSdk.rpc.Api.isSimulationSuccess(sim)) {
-          // Parse returned position struct if staker exists
+        if (StellarSdk.rpc.Api.isSimulationSuccess(sim) && sim.result?.retval) {
+          // Simulation succeeded; parse ScVal if position exists
+          const val = StellarSdk.scValToNative(sim.result.retval);
+          if (val && typeof val === 'object') {
+            const parsedPos: UserPositionState = {
+              poolId,
+              depositedAmount: Number(val.deposited_amount || 0) / 10_000_000,
+              shares: Number(val.shares || 0) / 10_000_000,
+              shareValueUsd: Number(val.deposited_amount || 0) / 10_000_000,
+              accruedYield: Number(val.total_yield_claimed || 0) / 10_000_000,
+              totalYieldClaimed: Number(val.total_yield_claimed || 0) / 10_000_000,
+              entryTimestamp: Number(val.entry_timestamp || Date.now()),
+              lastHarvestTimestamp: Number(val.last_harvest_timestamp || Date.now()),
+            };
+
+            setPositions((prev) => ({
+              ...prev,
+              [poolId]: parsedPos,
+            }));
+            return parsedPos;
+          }
         }
       } catch (err: any) {
-        // Fallback to local session positions or return empty
+        // Fallback gracefully without breaking UI flow
+        console.warn(`[Position Lookup] ${poolId}:`, err.message);
       }
+      return null;
     },
     [userAddress]
   );
 
-  // Execute Deposit into Vault Strategy
+  /**
+   * Deposit into a Soroban Yield Strategy Vault.
+   * Invokes `YieldVaultContract::deposit(user, pool_id, amount)`.
+   */
   const deposit = useCallback(
     async (poolId: string, amount: number) => {
       if (!userAddress || !signTransactionFn) {
-        throw new Error('Wallet not connected');
+        throw new Error('Wallet not connected. Please connect Freighter or use 1-Click Guest Mode.');
       }
       setIsTransacting(true);
       setError(null);
       setActiveTxHash(null);
 
+      analytics.track('deposit_initiated', { poolId, amount, userAddress });
+
       try {
         const account = await horizonServer.loadAccount(userAddress);
         const contract = new StellarSdk.Contract(STELLAR_CONFIG.contractId);
 
+        // Convert human-readable token amount to Stroops (10^7 scale)
         const stroopAmount = BigInt(Math.round(amount * 10_000_000));
         const userVal = StellarSdk.Address.fromString(userAddress).toScVal();
         const poolVal = StellarSdk.nativeToScVal(poolId, { type: 'symbol' });
@@ -76,6 +123,7 @@ export function useVaultContract(
           .setTimeout(180)
           .build();
 
+        // Prepare footprint and simulate execution
         const prepared = await rpcServer.prepareTransaction(tx);
         const signedXdr = await signTransactionFn(prepared.toXDR());
 
@@ -86,12 +134,12 @@ export function useVaultContract(
 
         const sendRes = await rpcServer.sendTransaction(signedTx);
         if (sendRes.status === 'ERROR') {
-          throw new Error(`Transaction failed at submission: ${JSON.stringify(sendRes.errorResult)}`);
+          throw new Error(`Transaction rejected by Soroban RPC: ${JSON.stringify(sendRes.errorResult)}`);
         }
 
         setActiveTxHash(sendRes.hash);
 
-        // Poll transaction to completion
+        // Poll transaction to confirmed ledger ingestion
         const pollRes = await rpcServer.pollTransaction(sendRes.hash);
 
         const newProof: OnChainTransactionProof = {
@@ -109,7 +157,7 @@ export function useVaultContract(
 
         setTxHistory((prev) => [newProof, ...prev]);
 
-        // Update active user position
+        // Optimistically increment staker position
         setPositions((prev) => {
           const current = prev[poolId] || {
             poolId,
@@ -134,18 +182,23 @@ export function useVaultContract(
           };
         });
 
+        analytics.track('deposit_success', { poolId, amount, txHash: sendRes.hash });
         setIsTransacting(false);
         return sendRes.hash;
       } catch (err: any) {
         setIsTransacting(false);
-        setError(err.message || 'Deposit transaction failed');
-        throw err;
+        const tracked = errorTracker.log(err);
+        setError(tracked.message);
+        throw new Error(tracked.message);
       }
     },
     [userAddress, signTransactionFn]
   );
 
-  // Execute Withdraw
+  /**
+   * Withdraw vault shares and redeem underlying tokens + accrued yield.
+   * Invokes `YieldVaultContract::withdraw(user, pool_id, shares)`.
+   */
   const withdraw = useCallback(
     async (poolId: string, sharesToWithdraw: number) => {
       if (!userAddress || !signTransactionFn) {
@@ -153,6 +206,8 @@ export function useVaultContract(
       }
       setIsTransacting(true);
       setError(null);
+
+      analytics.track('withdraw_initiated', { poolId, shares: sharesToWithdraw, userAddress });
 
       try {
         const account = await horizonServer.loadAccount(userAddress);
@@ -213,18 +268,23 @@ export function useVaultContract(
           };
         });
 
+        analytics.track('withdraw_success', { poolId, shares: sharesToWithdraw, txHash: sendRes.hash });
         setIsTransacting(false);
         return sendRes.hash;
       } catch (err: any) {
         setIsTransacting(false);
-        setError(err.message || 'Withdrawal failed');
-        throw err;
+        const tracked = errorTracker.log(err);
+        setError(tracked.message);
+        throw new Error(tracked.message);
       }
     },
     [userAddress, signTransactionFn]
   );
 
-  // Execute Auto-Compound Harvest
+  /**
+   * Execute Decentralized Keeper Auto-Compound harvest.
+   * Invokes `YieldVaultContract::compound_yield(caller, pool_id)`.
+   */
   const compoundYield = useCallback(
     async (poolId: string) => {
       if (!userAddress || !signTransactionFn) {
@@ -232,6 +292,8 @@ export function useVaultContract(
       }
       setIsTransacting(true);
       setError(null);
+
+      analytics.track('compound_initiated', { poolId, userAddress });
 
       try {
         const account = await horizonServer.loadAccount(userAddress);
@@ -276,7 +338,6 @@ export function useVaultContract(
 
         setTxHistory((prev) => [newProof, ...prev]);
 
-        // Boost active position yield
         setPositions((prev) => {
           const current = prev[poolId];
           if (!current) return prev;
@@ -290,18 +351,23 @@ export function useVaultContract(
           };
         });
 
+        analytics.track('compound_success', { poolId, txHash: sendRes.hash });
         setIsTransacting(false);
         return sendRes.hash;
       } catch (err: any) {
         setIsTransacting(false);
-        setError(err.message || 'Auto-compound transaction failed');
-        throw err;
+        const tracked = errorTracker.log(err);
+        setError(tracked.message);
+        throw new Error(tracked.message);
       }
     },
     [userAddress, signTransactionFn]
   );
 
-  // Execute Emergency Exit
+  /**
+   * Instant emergency exit returning 100% deposited principal.
+   * Invokes `YieldVaultContract::emergency_withdraw(user, pool_id)`.
+   */
   const emergencyWithdraw = useCallback(
     async (poolId: string) => {
       if (!userAddress || !signTransactionFn) {
@@ -309,6 +375,8 @@ export function useVaultContract(
       }
       setIsTransacting(true);
       setError(null);
+
+      analytics.track('emergency_exit_initiated', { poolId, userAddress });
 
       try {
         const account = await horizonServer.loadAccount(userAddress);
@@ -353,7 +421,6 @@ export function useVaultContract(
 
         setTxHistory((prev) => [newProof, ...prev]);
 
-        // Reset user position
         setPositions((prev) => ({
           ...prev,
           [poolId]: {
@@ -368,12 +435,14 @@ export function useVaultContract(
           },
         }));
 
+        analytics.track('emergency_exit_success', { poolId, txHash: sendRes.hash });
         setIsTransacting(false);
         return sendRes.hash;
       } catch (err: any) {
         setIsTransacting(false);
-        setError(err.message || 'Emergency exit failed');
-        throw err;
+        const tracked = errorTracker.log(err);
+        setError(tracked.message);
+        throw new Error(tracked.message);
       }
     },
     [userAddress, signTransactionFn]

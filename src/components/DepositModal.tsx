@@ -1,3 +1,15 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Deposit & Vault Share Minting Modal
+ * ==============================================================================
+ * 
+ * Manages the staker deposit flow into Soroban yield vaults:
+ * - Real-time spendable XLM balance validation (protects against reserve depletion)
+ * - Dynamic projected yield estimations (Daily, Monthly, Annualized APY returns)
+ * - Quick-percentage selectors (25%, 50%, 75%, MAX)
+ * - Confetti feedback & direct link to StellarExpert block explorer on confirmation
+ */
+
 import React, { useState } from 'react';
 import { X, ArrowDownRight, ShieldCheck, AlertTriangle, ExternalLink, Loader2, Sparkles } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -68,7 +80,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-3xl glass-panel border border-surface-border p-6 shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-md rounded-3xl glass-panel border border-surface-border p-6 shadow-2xl relative overflow-hidden max-h-[95vh] overflow-y-auto">
         
         {/* Glow Header Accent */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-48 h-1 bg-gradient-to-r from-primary to-stellar-cyan rounded-full" />
@@ -90,7 +102,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-surface hover:bg-surface-light text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-xl bg-surface hover:bg-surface-light text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -119,7 +131,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
                 href={`${STELLAR_CONFIG.explorerBaseUrl}/tx/${txHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center space-x-1.5 py-3 rounded-xl bg-surface-light border border-surface-border text-xs font-bold text-slate-200 hover:text-white"
+                className="flex-1 flex items-center justify-center space-x-1.5 py-3.5 rounded-xl bg-surface-light border border-surface-border text-xs font-bold text-slate-200 hover:text-white min-touch-target"
               >
                 <span>View on StellarExpert</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -131,7 +143,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
                   setDepositAmount('');
                   onClose();
                 }}
-                className="flex-1 py-3 rounded-xl bg-primary text-background text-xs font-bold shadow-glow-primary"
+                className="flex-1 py-3.5 rounded-xl bg-primary text-background text-xs font-bold shadow-glow-primary min-touch-target"
               >
                 Done
               </button>
@@ -172,7 +184,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
                     key={pct}
                     type="button"
                     onClick={() => handlePercentageSelect(pct)}
-                    className="flex-1 py-1.5 rounded-lg bg-surface border border-surface-border hover:border-primary/40 text-[11px] font-bold text-slate-300 hover:text-primary transition-colors"
+                    className="flex-1 py-1.5 rounded-lg bg-surface border border-surface-border hover:border-primary/40 text-[11px] font-bold text-slate-300 hover:text-primary transition-colors min-touch-target"
                   >
                     {pct === 100 ? 'MAX' : `${pct}%`}
                   </button>
@@ -217,7 +229,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
             <button
               onClick={handleConfirmDeposit}
               disabled={!isAmountValid || isSubmitting || !userAddress}
-              className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center space-x-2 transition-all ${
+              className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center space-x-2 transition-all min-touch-target ${
                 !userAddress
                   ? 'bg-surface-light text-slate-500 cursor-not-allowed border border-surface-border'
                   : !isAmountValid || isSubmitting

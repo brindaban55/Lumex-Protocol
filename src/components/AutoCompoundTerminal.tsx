@@ -1,15 +1,22 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Decentralized Keeper Auto-Compounder Terminal Component
+ * ==============================================================================
+ * 
+ * Implements the decentralized keeper execution terminal:
+ * - Allows any staker, bot, or keeper to invoke `compound_yield(caller, pool_id)`.
+ * - Automatically computes accrued DEX AMM fees and 1% caller bounty reward.
+ * - Interactive live terminal log window streaming RPC preparation, simulation,
+ *   and confirmed transaction hashes with direct StellarExpert explorer links.
+ */
+
 import React, { useState } from 'react';
 import { 
   Sparkles, 
-  Terminal, 
-  Zap, 
   Coins, 
   Clock, 
-  CheckCircle2, 
   Loader2, 
-  ExternalLink, 
-  ArrowRight,
-  TrendingUp
+  ExternalLink
 } from 'lucide-react';
 import { VaultPool } from '../types';
 import { STELLAR_CONFIG } from '../config/stellar';
@@ -97,7 +104,7 @@ export const AutoCompoundTerminal: React.FC<AutoCompoundTerminalProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left 5 Cols: Harvest Trigger Panel */}
-        <div className="lg:col-span-5 glass-panel rounded-3xl border border-surface-border p-6 space-y-6">
+        <div className="lg:col-span-5 glass-panel rounded-3xl border border-surface-border p-5 sm:p-6 space-y-6">
           
           {/* Strategy Selector Tabs */}
           <div className="space-y-2">
@@ -109,7 +116,7 @@ export const AutoCompoundTerminal: React.FC<AutoCompoundTerminalProps> = ({
                 <button
                   key={p.id}
                   onClick={() => setSelectedPoolId(p.id)}
-                  className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all ${
+                  className={`flex items-center justify-between p-3 rounded-2xl border text-left transition-all min-touch-target ${
                     selectedPoolId === p.id
                       ? 'bg-surface-light border-primary/40 shadow-sm'
                       : 'bg-surface border-surface-border hover:border-slate-600'
@@ -155,7 +162,7 @@ export const AutoCompoundTerminal: React.FC<AutoCompoundTerminalProps> = ({
           <button
             onClick={handleExecuteCompound}
             disabled={isHarvesting}
-            className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-stellar-cyan hover:from-primary-light hover:to-stellar-cyan text-background font-black text-sm flex items-center justify-center space-x-2 shadow-glow-primary transition-all"
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-primary to-stellar-cyan hover:from-primary-light hover:to-stellar-cyan text-background font-black text-sm flex items-center justify-center space-x-2 shadow-glow-primary transition-all min-touch-target"
           >
             {isHarvesting ? (
               <>
@@ -190,7 +197,7 @@ export const AutoCompoundTerminal: React.FC<AutoCompoundTerminalProps> = ({
         </div>
 
         {/* Right 7 Cols: Live Keeper Execution Terminal */}
-        <div className="lg:col-span-7 glass-panel rounded-3xl border border-surface-border p-6 flex flex-col justify-between">
+        <div className="lg:col-span-7 glass-panel rounded-3xl border border-surface-border p-5 sm:p-6 flex flex-col justify-between space-y-4">
           
           <div>
             {/* Terminal Window Header */}
@@ -233,7 +240,7 @@ export const AutoCompoundTerminal: React.FC<AutoCompoundTerminalProps> = ({
             </div>
           </div>
 
-          <div className="pt-4 border-t border-surface-border flex items-center justify-between text-[11px] text-slate-400 font-mono">
+          <div className="pt-4 border-t border-surface-border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-[11px] text-slate-400 font-mono">
             <span className="flex items-center space-x-1">
               <Clock className="w-3 h-3 text-slate-400" />
               <span>Interval: Continuous 15m trigger cycles</span>

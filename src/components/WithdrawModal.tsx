@@ -1,3 +1,15 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Vault Share Redemption & Emergency Exit Modal
+ * ==============================================================================
+ * 
+ * Manages the withdrawal and liquidation flow from Soroban yield vaults:
+ * 1. Standard Share Redemption: Burns vault shares $S_{burn}$ to redeem principal
+ *    plus accrued DEX fee yield ($P_{out} = S_{burn} \cdot (D_{total} + Y_{accumulated}) / S_{total}$).
+ * 2. Instant Non-Custodial Emergency Exit Hatch: Calls `emergency_withdraw` to return
+ *    100% of deposited principal instantaneously, bypassing yield locks.
+ */
+
 import React, { useState } from 'react';
 import { X, ArrowUpRight, ShieldAlert, AlertTriangle, ExternalLink, Loader2, CheckCircle2 } from 'lucide-react';
 import { VaultPool, UserPositionState } from '../types';
@@ -79,7 +91,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-3xl glass-panel border border-surface-border p-6 shadow-2xl relative overflow-hidden">
+      <div className="w-full max-w-md rounded-3xl glass-panel border border-surface-border p-6 shadow-2xl relative overflow-hidden max-h-[95vh] overflow-y-auto">
         
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-surface-border mb-5">
@@ -97,7 +109,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-surface hover:bg-surface-light text-slate-400 hover:text-white transition-colors"
+            className="p-2 rounded-xl bg-surface hover:bg-surface-light text-slate-400 hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -128,7 +140,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
                 href={`${STELLAR_CONFIG.explorerBaseUrl}/tx/${txHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center space-x-1.5 py-3 rounded-xl bg-surface-light border border-surface-border text-xs font-bold text-slate-200 hover:text-white"
+                className="flex-1 flex items-center justify-center space-x-1.5 py-3.5 rounded-xl bg-surface-light border border-surface-border text-xs font-bold text-slate-200 hover:text-white min-touch-target"
               >
                 <span>View on StellarExpert</span>
                 <ExternalLink className="w-3.5 h-3.5" />
@@ -140,7 +152,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
                   setWithdrawShares('');
                   onClose();
                 }}
-                className="flex-1 py-3 rounded-xl bg-primary text-background text-xs font-bold shadow-glow-primary"
+                className="flex-1 py-3.5 rounded-xl bg-primary text-background text-xs font-bold shadow-glow-primary min-touch-target"
               >
                 Done
               </button>
@@ -193,7 +205,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
                     key={pct}
                     type="button"
                     onClick={() => handlePercentageSelect(pct)}
-                    className="flex-1 py-1.5 rounded-lg bg-surface border border-surface-border hover:border-stellar-cyan/40 text-[11px] font-bold text-slate-300 hover:text-stellar-cyan transition-colors"
+                    className="flex-1 py-1.5 rounded-lg bg-surface border border-surface-border hover:border-stellar-cyan/40 text-[11px] font-bold text-slate-300 hover:text-stellar-cyan transition-colors min-touch-target"
                   >
                     {pct === 100 ? '100%' : `${pct}%`}
                   </button>
@@ -213,7 +225,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
             <button
               onClick={handleConfirmWithdraw}
               disabled={!isSharesValid || isSubmitting || totalUserShares === 0}
-              className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center space-x-2 transition-all ${
+              className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center space-x-2 transition-all min-touch-target ${
                 !isSharesValid || isSubmitting || totalUserShares === 0
                   ? 'bg-surface-light text-slate-500 cursor-not-allowed border border-surface-border'
                   : 'bg-gradient-to-r from-stellar-cyan to-stellar-blue hover:from-stellar-blue hover:to-stellar-cyan text-white shadow-glow-blue'
@@ -239,7 +251,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
                   handleConfirmEmergency();
                 }}
                 disabled={isSubmitting || totalDeposited === 0}
-                className="w-full py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors"
+                className="w-full py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors min-touch-target"
               >
                 <ShieldAlert className="w-3.5 h-3.5" />
                 <span>Instant Emergency Exit (Return 100% Principal)</span>

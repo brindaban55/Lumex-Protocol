@@ -1,6 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+/**
+ * ==============================================================================
+ * Lumex Protocol — Live DEX Liquidity Pools & Telemetry Poller Hook
+ * ==============================================================================
+ * 
+ * Interacts with Stellar Horizon endpoints (`/liquidity_pools` and `/ledgers`)
+ * to stream real-time DEX reserve depths, AMM trading volume, and dynamic APY calculations.
+ * 
+ * Mathematical Formulation:
+ * 1. Reserve TVL = (Reserve_AssetA * SpotPrice_A) + (Reserve_AssetB * SpotPrice_B)
+ * 2. Daily Fee Volume = TVL * (Base_APY / 100 / 365)
+ * 3. Compounded APY = Base_APY + Soroban_Keeper_Reinvestment_Boost
+ * 
+ * Prevents stale closure issues by using functional state updates across intervals.
+ */
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { VaultPool, ProtocolTelemetry } from '../types';
 import { INITIAL_VAULT_POOLS, STELLAR_CONFIG } from '../config/stellar';
+import { analytics } from '../utils/analytics';
 
 export function useLivePools() {
   const [pools, setPools] = useState<VaultPool[]>(INITIAL_VAULT_POOLS);
@@ -14,22 +31,27 @@ export function useLivePools() {
     rpcBlockHeight: 384912,
     networkStatus: 'Operational',
   });
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const isInitialMount = useRef(true);
 
   const fetchLiveHorizonPools = useCallback(async () => {
     setIsRefreshing(true);
     const startTime = performance.now();
+
     try {
+      // 1. Query Stellar Horizon DEX Liquidity Pools endpoint
       const res = await fetch(`${STELLAR_CONFIG.horizonUrl}/liquidity_pools?limit=10`);
       const latency = Math.round(performance.now() - startTime);
+
+      let updatedPoolsList: VaultPool[] = [];
 
       if (res.ok) {
         const data = await res.json();
         const records = data._embedded?.records || [];
 
-        // Dynamic pool APY calculation from Horizon liquidity data
-        setPools((prevPools) =>
-          prevPools.map((pool) => {
+        // 2. Map on-chain AMM reserves to Lumex vault structures
+        setPools((prevPools) => {
+          const updated = prevPools.map((pool) => {
             const matchedRecord = records.find(
               (r: any) => r.id === pool.liquidityPoolId || r.total_shares > 0
             );
@@ -45,7 +67,7 @@ export function useLivePools() {
                 calculatedTvl = Math.max(10000, amountA * 0.12 + amountB);
               }
 
-              // APY formula = (Daily Fee Volume * 365 * 0.003) / TVL
+              // Continuous fee yield formulation: (Daily Fee Volume * 365 * 0.003) / TVL
               const estimatedDailyFees = calculatedTvl * (pool.baseApy / 100 / 365);
               const computedBaseApy = Number(
                 ((estimatedDailyFees * 365 * 100) / Math.max(1, calculatedTvl)).toFixed(1)
@@ -62,22 +84,26 @@ export function useLivePools() {
               };
             }
             return pool;
-          })
-        );
+          });
 
-        // Fetch latest ledger height
+          updatedPoolsList = updated;
+          return updated;
+        });
+
+        // 3. Fetch latest confirmed ledger sequence height
         const ledgerRes = await fetch(`${STELLAR_CONFIG.horizonUrl}/ledgers?order=desc&limit=1`);
-        let currentLedger = telemetry.rpcBlockHeight;
+        let currentLedger = 384912;
         if (ledgerRes.ok) {
           const ledgerData = await ledgerRes.json();
           currentLedger = ledgerData._embedded?.records?.[0]?.sequence || currentLedger;
         }
 
-        // Recompute protocol-wide telemetry
+        // 4. Update aggregated protocol telemetry
         setTelemetry((prev) => {
-          const totalTvl = pools.reduce((acc, p) => acc + p.tvlUsd, 0);
-          const avgApy = Number((pools.reduce((acc, p) => acc + p.totalApy, 0) / pools.length).toFixed(2));
-          const totalStakers = pools.reduce((acc, p) => acc + p.stakersCount, 0);
+          const activeList = updatedPoolsList.length > 0 ? updatedPoolsList : INITIAL_VAULT_POOLS;
+          const totalTvl = activeList.reduce((acc, p) => acc + p.tvlUsd, 0);
+          const avgApy = Number((activeList.reduce((acc, p) => acc + p.totalApy, 0) / activeList.length).toFixed(2));
+          const totalStakers = activeList.reduce((acc, p) => acc + p.stakersCount, 0);
 
           return {
             ...prev,
@@ -86,22 +112,27 @@ export function useLivePools() {
             activeStakersCount: totalStakers,
             horizonLatencyMs: latency,
             rpcBlockHeight: currentLedger,
-            networkStatus: latency < 350 ? 'Operational' : 'Degraded',
+            networkStatus: latency < 400 ? 'Operational' : 'Degraded',
           };
         });
+
+        if (!isInitialMount.current) {
+          analytics.track('pool_refreshed', { latencyMs: latency, ledger: currentLedger });
+        }
       }
     } catch (err: any) {
-      console.warn('Horizon pool query failed:', err.message);
+      console.warn('[Horizon Poller] Query warning:', err.message);
     } finally {
       setIsRefreshing(false);
+      isInitialMount.current = false;
     }
-  }, [pools, telemetry.rpcBlockHeight]);
+  }, []);
 
   useEffect(() => {
     fetchLiveHorizonPools();
     const interval = setInterval(fetchLiveHorizonPools, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchLiveHorizonPools]);
 
   return {
     pools,

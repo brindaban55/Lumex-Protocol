@@ -1,14 +1,19 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — User Position & Portfolio Tracker Component
+ * ==============================================================================
+ * 
+ * Displays active staker positions, accrued yield distributions, and vault actions:
+ * - Desktop: Clean responsive table with deposited principal, shares, and APY.
+ * - Mobile: Modular responsive cards with touch targets for Add, Withdraw, and Compound.
+ * - Strict Zero-Mock Policy: When disconnected, displays clean empty state without phantom assets.
+ */
+
 import React, { useState } from 'react';
 import { 
   ShieldCheck, 
   Sparkles, 
-  ArrowUpRight, 
-  ArrowDownRight, 
   Wallet, 
-  Clock, 
-  TrendingUp, 
-  ShieldAlert,
-  ExternalLink,
   Coins
 } from 'lucide-react';
 import { VaultPool, UserPositionState } from '../types';
@@ -76,7 +81,7 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
 
       {/* Disconnected State - STRICT ZERO-MOCK POLICY */}
       {!userAddress ? (
-        <div className="glass-panel rounded-3xl border border-surface-border p-12 text-center max-w-2xl mx-auto space-y-5">
+        <div className="glass-panel rounded-3xl border border-surface-border p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-5">
           <div className="w-16 h-16 rounded-2xl bg-surface-light border border-surface-border flex items-center justify-center mx-auto text-slate-400">
             <Wallet className="w-8 h-8" />
           </div>
@@ -90,14 +95,14 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
 
           <button
             onClick={onConnectWallet}
-            className="px-6 py-3.5 rounded-xl bg-primary hover:bg-primary-light text-background font-bold text-sm shadow-glow-primary transition-all"
+            className="px-6 py-3.5 rounded-xl bg-primary hover:bg-primary-light text-background font-bold text-sm shadow-glow-primary transition-all min-touch-target"
           >
             Connect Wallet
           </button>
         </div>
       ) : activePoolPositions.length === 0 ? (
         /* Connected but No Active Positions */
-        <div className="glass-panel rounded-3xl border border-surface-border p-12 text-center max-w-2xl mx-auto space-y-5">
+        <div className="glass-panel rounded-3xl border border-surface-border p-8 sm:p-12 text-center max-w-2xl mx-auto space-y-5">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto text-primary">
             <Coins className="w-8 h-8" />
           </div>
@@ -114,12 +119,12 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
         <div className="space-y-6">
           
           {/* Portfolio Summary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
             <div className="glass-panel p-6 rounded-2xl border border-surface-border">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Total Staked Principal
               </span>
-              <div className="text-3xl font-black text-white font-mono mt-2">
+              <div className="text-2xl sm:text-3xl font-black text-white font-mono mt-2">
                 ${totalUserDeposits.toFixed(2)}
               </div>
               <div className="text-xs text-slate-400 mt-1">Across {activePoolPositions.length} strategy vault(s)</div>
@@ -129,7 +134,7 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Accumulated Fee Yield
               </span>
-              <div className="text-3xl font-black text-primary font-mono mt-2 glow-emerald">
+              <div className="text-2xl sm:text-3xl font-black text-primary font-mono mt-2 glow-emerald">
                 +${totalUserYield.toFixed(2)}
               </div>
               <div className="text-xs text-primary font-medium mt-1 flex items-center space-x-1">
@@ -142,7 +147,7 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                 Capital Safety
               </span>
-              <div className="text-2xl font-bold text-emerald-400 mt-2 flex items-center space-x-2">
+              <div className="text-xl sm:text-2xl font-bold text-emerald-400 mt-2 flex items-center space-x-2">
                 <ShieldCheck className="w-6 h-6" />
                 <span>Non-Custodial</span>
               </div>
@@ -150,8 +155,8 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
             </div>
           </div>
 
-          {/* Positions Table */}
-          <div className="glass-panel rounded-3xl border border-surface-border overflow-hidden">
+          {/* Desktop Table View */}
+          <div className="hidden md:block glass-panel rounded-3xl border border-surface-border overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-surface-light/80 text-xs uppercase font-bold text-slate-400 tracking-wider border-b border-surface-border">
@@ -227,6 +232,52 @@ export const UserPositionCard: React.FC<UserPositionCardProps> = ({
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Mobile Responsive Cards View */}
+          <div className="md:hidden space-y-4">
+            {activePoolPositions.map(({ pool, position }) => (
+              <div key={pool.id} className="glass-panel p-5 rounded-2xl border border-surface-border space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-bold text-white text-base">{pool.name}</div>
+                  <span className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-mono font-bold text-xs">
+                    {pool.totalApy.toFixed(1)}% APY
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-surface-border">
+                  <div>
+                    <span className="text-slate-400">Deposited:</span>
+                    <div className="font-mono font-bold text-white">{position.depositedAmount.toFixed(2)} {pool.assetA.symbol}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">Accrued Yield:</span>
+                    <div className="font-mono font-bold text-primary">+{position.accruedYield.toFixed(2)} {pool.assetA.symbol}</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <button
+                    onClick={() => setSelectedDepositPool(pool)}
+                    className="py-2.5 rounded-xl bg-surface border border-surface-border text-xs font-bold text-white text-center min-touch-target"
+                  >
+                    + Add
+                  </button>
+                  <button
+                    onClick={() => setSelectedWithdrawPool(pool)}
+                    className="py-2.5 rounded-xl bg-stellar-cyan/10 border border-stellar-cyan/30 text-stellar-cyan text-xs font-bold text-center min-touch-target"
+                  >
+                    Withdraw
+                  </button>
+                  <button
+                    onClick={() => onCompoundYield(pool.id)}
+                    className="py-2.5 rounded-xl bg-primary/10 border border-primary/30 text-primary text-xs font-bold text-center min-touch-target"
+                  >
+                    Compound
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
 
         </div>

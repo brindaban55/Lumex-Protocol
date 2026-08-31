@@ -1,16 +1,23 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Active Yield Strategy Vaults Grid Component
+ * ==============================================================================
+ * 
+ * Displays modular strategy vault cards with real-time on-chain stats:
+ * - Dynamic APY breakdown (Base DEX AMM trading fees + Soroban auto-compound multiplier)
+ * - Risk classification filter (Conservative, Moderate)
+ * - Proportional vault share valuation and staker position tracker
+ * - Modals for deposits and withdrawals with spendable reserve safety bounds
+ */
+
 import React, { useState } from 'react';
 import { 
-  TrendingUp, 
   ArrowDownRight, 
   ArrowUpRight, 
-  ShieldCheck, 
   Sparkles, 
-  Info, 
-  Coins, 
   Users, 
   RefreshCw,
-  ExternalLink,
-  ChevronRight
+  ExternalLink
 } from 'lucide-react';
 import { VaultPool, UserPositionState } from '../types';
 import { DepositModal } from './DepositModal';
@@ -63,10 +70,11 @@ export const VaultPoolsGrid: React.FC<VaultPoolsGridProps> = ({
             </h2>
             <button
               onClick={onRefreshPools}
-              className={`p-1.5 rounded-lg bg-surface hover:bg-surface-light text-slate-400 hover:text-primary transition-colors ${
+              className={`p-1.5 rounded-lg bg-surface hover:bg-surface-light text-slate-400 hover:text-primary transition-colors min-touch-target flex items-center justify-center ${
                 isRefreshing ? 'animate-spin text-primary' : ''
               }`}
               title="Refresh on-chain Horizon pool data"
+              aria-label="Refresh Pools"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -77,7 +85,7 @@ export const VaultPoolsGrid: React.FC<VaultPoolsGridProps> = ({
         </div>
 
         {/* Risk Filter Buttons */}
-        <div className="flex items-center space-x-1.5 p-1 rounded-xl bg-surface border border-surface-border">
+        <div className="flex items-center space-x-1.5 p-1 rounded-xl bg-surface border border-surface-border self-start sm:self-auto">
           {['All', 'Conservative', 'Moderate'].map((risk) => (
             <button
               key={risk}
@@ -219,7 +227,7 @@ export const VaultPoolsGrid: React.FC<VaultPoolsGridProps> = ({
               <div className="grid grid-cols-2 gap-3 pt-4 border-t border-surface-border">
                 <button
                   onClick={() => setSelectedDepositPool(pool)}
-                  className="py-3 rounded-xl bg-primary hover:bg-primary-light text-background font-bold text-xs flex items-center justify-center space-x-1.5 shadow-glow-primary transition-all"
+                  className="py-3 rounded-xl bg-primary hover:bg-primary-light text-background font-bold text-xs flex items-center justify-center space-x-1.5 shadow-glow-primary transition-all min-touch-target"
                 >
                   <ArrowDownRight className="w-3.5 h-3.5" />
                   <span>Deposit</span>
@@ -228,7 +236,7 @@ export const VaultPoolsGrid: React.FC<VaultPoolsGridProps> = ({
                 <button
                   onClick={() => setSelectedWithdrawPool(pool)}
                   disabled={!hasPosition}
-                  className={`py-3 rounded-xl border text-xs font-bold flex items-center justify-center space-x-1.5 transition-all ${
+                  className={`py-3 rounded-xl border text-xs font-bold flex items-center justify-center space-x-1.5 transition-all min-touch-target ${
                     hasPosition
                       ? 'bg-surface-light hover:bg-surface-border border-surface-border text-white hover:text-stellar-cyan'
                       : 'bg-surface/50 border-surface-border text-slate-600 cursor-not-allowed'

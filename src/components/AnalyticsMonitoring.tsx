@@ -1,3 +1,16 @@
+/**
+ * ==============================================================================
+ * Lumex Protocol — Telemetry Monitoring & System Health Component
+ * ==============================================================================
+ * 
+ * Provides live observability into protocol vitals:
+ * - Horizon Node Query Latency (ms) & ledger synchronization state
+ * - Soroban RPC simulation latency & latest block height
+ * - Average confirmation speeds (3-5s SCP finality)
+ * - Micro-fee breakdown (100 stroops = $0.00001 per tx)
+ * - Live session activity feed tracking all on-chain actions
+ */
+
 import React from 'react';
 import { 
   Activity, 
@@ -6,10 +19,10 @@ import {
   Zap, 
   Clock, 
   CheckCircle2, 
-  ExternalLink,
-  ShieldCheck,
-  BarChart3,
-  Globe
+  ExternalLink, 
+  ShieldCheck, 
+  BarChart3, 
+  Globe 
 } from 'lucide-react';
 import { ProtocolTelemetry, OnChainTransactionProof } from '../types';
 import { STELLAR_CONFIG } from '../config/stellar';
@@ -43,7 +56,7 @@ export const AnalyticsMonitoring: React.FC<AnalyticsMonitoringProps> = ({
       </div>
 
       {/* Grid of System Gauges */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
         
         {/* Horizon Endpoint Status */}
         <div className="glass-panel p-5 rounded-3xl border border-surface-border">
