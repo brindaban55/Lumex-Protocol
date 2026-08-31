@@ -36,8 +36,8 @@ export const STELLAR_CONFIG = {
   friendbotUrl: (import.meta.env.VITE_FRIENDBOT_URL as string) || 'https://friendbot.stellar.org',
   explorerBaseUrl: (import.meta.env.VITE_EXPLORER_BASE_URL as string) || 'https://stellar.expert/explorer/testnet',
   
-  // Deployed YieldVault Soroban Contract ID on Testnet
-  contractId: (import.meta.env.VITE_CONTRACT_ID as string) || 'CBJNWXHYA2BIPW5LVDQO3KTYEQNXUG557YV35T6B7Z7KEMWUPC6S37J4',
+  // Real Deployed YieldVault Soroban Contract ID on Stellar Testnet
+  contractId: (import.meta.env.VITE_CONTRACT_ID as string) || 'CASS7HZXKDIRM7A3NO35O34PKCPR7NQ2U24W5I2X24YDAA4WMN6LLR4Y',
   
   // Stellar Reserve Constants (Protocol 20+)
   baseReservePerEntry: 0.5, // 0.5 XLM per active trustline / signers / data subentry
@@ -106,9 +106,9 @@ export const INITIAL_VAULT_POOLS: VaultPool[] = [
       icon: 'USDC',
       contractId: TESTNET_TOKENS.USDC.contractId,
     },
-    underlyingToken: TESTNET_TOKENS.USDC.contractId,
-    baseApy: 14.2,
-    boostApy: 5.6,
+    underlyingToken: TESTNET_TOKENS.XLM.contractId,
+    baseApy: 14.5,
+    boostApy: 5.3,
     totalApy: 19.8,
     tvlUsd: 142850.00,
     totalDeposits: 142850,
@@ -134,7 +134,7 @@ export const INITIAL_VAULT_POOLS: VaultPool[] = [
       icon: 'AQUA',
       contractId: TESTNET_TOKENS.AQUA.contractId,
     },
-    underlyingToken: TESTNET_TOKENS.AQUA.contractId,
+    underlyingToken: TESTNET_TOKENS.XLM.contractId,
     baseApy: 22.5,
     boostApy: 9.3,
     totalApy: 31.8,
@@ -162,7 +162,7 @@ export const INITIAL_VAULT_POOLS: VaultPool[] = [
       icon: 'USD',
       contractId: TESTNET_TOKENS.USDC.contractId,
     },
-    underlyingToken: TESTNET_TOKENS.USDC.contractId,
+    underlyingToken: TESTNET_TOKENS.XLM.contractId,
     baseApy: 9.4,
     boostApy: 3.1,
     totalApy: 12.5,

@@ -1,0 +1,30 @@
+{
+  "network": "testnet",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "contractId": "CASS7HZXKDIRM7A3NO35O34PKCPR7NQ2U24W5I2X24YDAA4WMN6LLR4Y",
+  "adminAddress": "GA2ALZHYG7BB57UI6ZANXL5UT6L6Z32FH2ME5M5WGDJDI5VNSSFQNN7V",
+  "wasmHash": "0e1a921d730c9c6e5abdc388d3f3852a3c766e990ffe3cd0187993b4257ac4d1",
+  "wasmUploadTx": "614501f8df13d217f217bcd8b5b46da5485fc0192a6d0c8684b7f537cb87179e",
+  "contractDeployTx": "604125ed7394f48118f5b6a61b73eada18416e78fda732d049e7ae9149a3f673",
+  "initializeTx": "8e14f4a53a0dc37f0e83c7e6e19688dd614ddc27ceb01a0962029bc0aa72ab34",
+  "pools": [
+    {
+      "poolId": "XLM_USDC",
+      "apyBasisPoints": 1450,
+      "initTx": "79afbeeaa91b4c279e044a38778a8d4005f643562bf033b38af40428322e2dc2"
+    },
+    {
+      "poolId": "XLM_AQUA",
+      "apyBasisPoints": 2250,
+      "initTx": "956157c5c04c564d1ac047fe3a9ba51b3196c995363676a9cf201141bba8ca0a"
+    },
+    {
+      "poolId": "USDC_VAULT",
+      "apyBasisPoints": 940,
+      "initTx": "56bfd13ab2fda48d957e5149fffe580945e8ce9435a12e91311868e44a2d4130"
+    }
+  ],
+  "deployedAt": "2026-08-31T10:50:30Z",
+  "stellarExpertUrl": "https://stellar.expert/explorer/testnet/contract/CASS7HZXKDIRM7A3NO35O34PKCPR7NQ2U24W5I2X24YDAA4WMN6LLR4Y",
+  "stellarLabUrl": "https://lab.stellar.org/r/testnet/contract/CASS7HZXKDIRM7A3NO35O34PKCPR7NQ2U24W5I2X24YDAA4WMN6LLR4Y"
+}

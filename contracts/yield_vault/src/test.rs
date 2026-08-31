@@ -3,7 +3,7 @@ use super::*;
 use soroban_sdk::{
     symbol_short,
     testutils::{Address as _, Ledger},
-    token, Address, Env, Symbol,
+    token, Address, Env,
 };
 
 fn create_token_contract<'a>(e: &Env, admin: &Address) -> (Address, token::Client<'a>, token::StellarAssetClient<'a>) {
@@ -25,8 +25,9 @@ fn setup_vault<'a>(
     token::StellarAssetClient<'a>,
 ) {
     let admin = Address::generate(env);
-    let contract_id = env.register(YieldVaultContract, (&admin,));
+    let contract_id = env.register(YieldVaultContract, ());
     let client = YieldVaultContractClient::new(env, &contract_id);
+    client.initialize(&admin);
 
     let (token_addr, token_client, token_admin_client) = create_token_contract(env, &admin);
 

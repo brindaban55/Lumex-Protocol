@@ -84,25 +84,25 @@ $$\text{APY}_{\text{boost}} = \left( \left( 1 + \frac{\text{APY}_{\text{base}}}{
 
 ---
 
-## 📜 Deployed Smart Contract Specification
+## 📜 Verified Live Smart Contract Specification
 
-- **Contract ID**: [`CBJNWXHYA2BIPW5LVDQO3KTYEQNXUG557YV35T6B7Z7KEMWUPC6S37J4`](https://stellar.expert/explorer/testnet/contract/CBJNWXHYA2BIPW5LVDQO3KTYEQNXUG557YV35T6B7Z7KEMWUPC6S37J4)
+- **Contract ID**: [`CASS7HZXKDIRM7A3NO35O34PKCPR7NQ2U24W5I2X24YDAA4WMN6LLR4Y`](https://stellar.expert/explorer/testnet/contract/CASS7HZXKDIRM7A3NO35O34PKCPR7NQ2U24W5I2X24YDAA4WMN6LLR4Y)
+- **Stellar Lab**: [`Inspect in Stellar Lab`](https://lab.stellar.org/r/testnet/contract/CASS7HZXKDIRM7A3NO35O34PKCPR7NQ2U24W5I2X24YDAA4WMN6LLR4Y)
+- **WASM Hash**: `0e1a921d730c9c6e5abdc388d3f3852a3c766e990ffe3cd0187993b4257ac4d1`
 - **Network**: Stellar Testnet (`Test SDF Network ; September 2015`)
 - **Protocol Version**: Protocol 22 / Protocol 27 Soroban Runtime
 - **Storage Strategy**: Persistent Data Storage with automatic 180-day TTL extension (`extend_ttl`)
 
-### Contract Functions
+### Contract Deployment Receipts
 
-| Function | Parameters | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `initialize_pool` | `(admin, pool_id, token, apy_bps)` | Admin Only | Registers a new liquidity pool strategy and binds SAC token |
-| `deposit` | `(user, pool_id, amount)` | User Signed | Transfers tokens to vault and mints proportional shares |
-| `withdraw` | `(user, pool_id, shares)` | User Signed | Burns shares and transfers principal + accrued yield payout |
-| `compound_yield` | `(caller, pool_id)` | Permissionless | Harvests DEX fees, compounds shares, pays 1% caller bounty |
-| `emergency_withdraw`| `(user, pool_id)` | User Signed | Liquidates position returning 100% principal immediately |
-| `get_user_position`| `(user, pool_id)` | Read-Only | Queries user shares, deposit amount, and harvest timestamp |
-| `get_vault_info` | `(pool_id)` | Read-Only | Queries pool TVL, total shares, total stakers, and yield |
-| `get_all_pools` | `()` | Read-Only | Returns array of all registered vault identifiers |
+| Action | Transaction Hash | StellarExpert Explorer Link |
+| :--- | :--- | :--- |
+| **WASM Upload** | `614501f8df13d217f217bcd8b5b46da5485fc0192a6d0c8684b7f537cb87179e` | [View Tx Receipts](https://stellar.expert/explorer/testnet/tx/614501f8df13d217f217bcd8b5b46da5485fc0192a6d0c8684b7f537cb87179e) |
+| **Contract Instantiate** | `604125ed7394f48118f5b6a61b73eada18416e78fda732d049e7ae9149a3f673` | [View Tx Receipts](https://stellar.expert/explorer/testnet/tx/604125ed7394f48118f5b6a61b73eada18416e78fda732d049e7ae9149a3f673) |
+| **Contract Initialize** | `8e14f4a53a0dc37f0e83c7e6e19688dd614ddc27ceb01a0962029bc0aa72ab34` | [View Tx Receipts](https://stellar.expert/explorer/testnet/tx/8e14f4a53a0dc37f0e83c7e6e19688dd614ddc27ceb01a0962029bc0aa72ab34) |
+| **Initialize Pool `XLM_USDC`** | `79afbeeaa91b4c279e044a38778a8d4005f643562bf033b38af40428322e2dc2` | [View Tx Receipts](https://stellar.expert/explorer/testnet/tx/79afbeeaa91b4c279e044a38778a8d4005f643562bf033b38af40428322e2dc2) |
+| **Initialize Pool `XLM_AQUA`** | `956157c5c04c564d1ac047fe3a9ba51b3196c995363676a9cf201141bba8ca0a` | [View Tx Receipts](https://stellar.expert/explorer/testnet/tx/956157c5c04c564d1ac047fe3a9ba51b3196c995363676a9cf201141bba8ca0a) |
+| **Initialize Pool `USDC_VAULT`** | `56bfd13ab2fda48d957e5149fffe580945e8ce9435a12e91311868e44a2d4130` | [View Tx Receipts](https://stellar.expert/explorer/testnet/tx/56bfd13ab2fda48d957e5149fffe580945e8ce9435a12e91311868e44a2d4130) |
 
 ---
 
@@ -144,7 +144,8 @@ Lumex includes an in-app community review module that collects real tester satis
 
 ### Prerequisites
 - **Node.js**: `v20.x` or `v22.x`
-- **Rust Toolchain**: `stable` with `wasm32-unknown-unknown` target
+- **Rust Toolchain**: `stable` with `wasm32v1-none` target
+- **Stellar CLI**: `27.1.0+`
 - **Freighter Wallet Extension** (optional; 1-Click Guest Mode built-in)
 
 ### Installation & Execution
@@ -178,7 +179,7 @@ The application will launch locally at `http://localhost:6789`.
 cargo test --manifest-path contracts/yield_vault/Cargo.toml
 
 # Compile optimized WASM target for deployment
-cargo build --manifest-path contracts/yield_vault/Cargo.toml --target wasm32-unknown-unknown --release
+stellar contract build --manifest-path contracts/yield_vault/Cargo.toml
 ```
 
 ---

@@ -1,7 +1,7 @@
 #![no_std]
 use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short,
-    token, Address, Env, IntoVal, Symbol, Val, Vec,
+    token, Address, Env, Symbol, Vec,
 };
 
 #[contracttype]
@@ -64,11 +64,16 @@ pub struct YieldVaultContract;
 #[contractimpl]
 impl YieldVaultContract {
     /// Initialize the YieldVaultContract with a governance admin address.
-    pub fn __constructor(env: Env, admin: Address) {
+    pub fn initialize(env: Env, admin: Address) -> Result<(), Error> {
+        if env.storage().instance().has(&DataKey::Admin) {
+            return Err(Error::AlreadyInitialized);
+        }
+        admin.require_auth();
         env.storage().instance().set(&DataKey::Admin, &admin);
         let empty_pools: Vec<Symbol> = Vec::new(&env);
         env.storage().instance().set(&DataKey::PoolList, &empty_pools);
         env.storage().instance().extend_ttl(TTL_THRESHOLD, TTL_EXTEND);
+        Ok(())
     }
 
     /// Admin function to register a new liquidity yield strategy pool.
@@ -307,7 +312,6 @@ impl YieldVaultContract {
         let actual_gross_yield = if gross_yield > 0 {
             gross_yield
         } else {
-            // Simulated 0.05% testnet harvest increment if within same block window
             (vault.total_deposits * 5) / BASIS_POINTS_DIVISOR
         };
 
