@@ -20,7 +20,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Buffer } from 'buffer';
 import * as StellarSdk from '@stellar/stellar-sdk';
-import { STELLAR_CONFIG, rpcServer, horizonServer } from '../config/stellar';
+import { STELLAR_CONFIG, rpcServer, horizonServer, TESTNET_TOKENS } from '../config/stellar';
+
 import { UserPositionState, OnChainTransactionProof } from '../types';
 import { analytics } from '../utils/analytics';
 import { errorTracker } from '../utils/errorTracking';
@@ -837,20 +838,40 @@ export function useVaultContract(
         let latestLedger = 4433046;
 
         // Build Stellar Testnet Swap Transaction
-        const tx = new StellarSdk.TransactionBuilder(account, {
+        const txBuilder = new StellarSdk.TransactionBuilder(account, {
           fee: '10000',
           networkPassphrase: STELLAR_CONFIG.networkPassphrase,
-        })
-          .addOperation(
-            StellarSdk.Operation.payment({
-              destination: 'GA5C5RH4LB6U7JI3INRG6FMMJXIQOBCQKTAKIVG3IR4OWTKG7UGSYUY6',
-              asset: StellarSdk.Asset.native(),
-              amount: Math.max(0.01, amountIn).toFixed(7),
-            })
-          )
-          .addMemo(StellarSdk.Memo.text(`swp:${fromToken}>${toToken}`.slice(0, 28)))
-          .setTimeout(180)
-          .build();
+        });
+
+        // Automatically establish trustline in the same transaction if receiving USDC or AQUA
+        if (toToken === 'USDC' || toToken === 'AQUA') {
+          const hasTrust = account.balances.some(
+            (b: any) => b.asset_code === toToken
+          );
+          if (!hasTrust) {
+            const tokenMeta = TESTNET_TOKENS[toToken as keyof typeof TESTNET_TOKENS];
+            if (tokenMeta && 'issuer' in tokenMeta && tokenMeta.issuer) {
+              const targetAsset = new StellarSdk.Asset(toToken, tokenMeta.issuer);
+              txBuilder.addOperation(
+                StellarSdk.Operation.changeTrust({
+                  asset: targetAsset,
+                  limit: '10000000',
+                })
+              );
+            }
+          }
+        }
+
+        txBuilder.addOperation(
+          StellarSdk.Operation.payment({
+            destination: 'GA5C5RH4LB6U7JI3INRG6FMMJXIQOBCQKTAKIVG3IR4OWTKG7UGSYUY6',
+            asset: StellarSdk.Asset.native(),
+            amount: Math.max(0.01, amountIn).toFixed(7),
+          })
+        );
+        txBuilder.addMemo(StellarSdk.Memo.text(`swp:${fromToken}>${toToken}`.slice(0, 28)));
+        txBuilder.setTimeout(180);
+        const tx = txBuilder.build();
 
         const signedXdr = await signTransactionFn(tx.toXDR());
         const signedTx = StellarSdk.TransactionBuilder.fromXDR(
@@ -867,6 +888,12 @@ export function useVaultContract(
           const adminSecret = (import.meta.env.VITE_ADMIN_SECRET_KEY as string) || 'SDCIPLIVMDV25SYNGCW64AMRKVZGU4G77337BUSATABXHYK3XOI7JT2G';
           const adminKey = StellarSdk.Keypair.fromSecret(adminSecret);
           const vaultAcc = await horizonServer.loadAccount(adminKey.publicKey());
+
+          const tokenMeta = TESTNET_TOKENS[toToken as keyof typeof TESTNET_TOKENS];
+          const payoutAsset = (toToken !== 'XLM' && tokenMeta && 'issuer' in tokenMeta && tokenMeta.issuer)
+            ? new StellarSdk.Asset(toToken, tokenMeta.issuer)
+            : StellarSdk.Asset.native();
+
           const payoutTx = new StellarSdk.TransactionBuilder(vaultAcc, {
             fee: '100',
             networkPassphrase: STELLAR_CONFIG.networkPassphrase,
@@ -874,7 +901,7 @@ export function useVaultContract(
             .addOperation(
               StellarSdk.Operation.payment({
                 destination: userAddress,
-                asset: StellarSdk.Asset.native(),
+                asset: payoutAsset,
                 amount: Math.max(0.01, amountOut).toFixed(7),
               })
             )
@@ -886,6 +913,7 @@ export function useVaultContract(
         } catch (payoutErr: any) {
           console.warn('[Swap Payout] Testnet fulfillment:', payoutErr?.message);
         }
+
 
         setActiveTxHash(finalTxHash);
         setTxReceipt({ txHash: finalTxHash, success: true });
