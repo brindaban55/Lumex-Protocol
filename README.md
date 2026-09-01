@@ -103,7 +103,9 @@ Full institutional desktop experience showcasing dynamic TVL tracking, APY calcu
 ### 📱 Mobile UI & Responsive Experience
 Fully touch-optimized mobile layout with adaptive card reflow, sticky actions, and zero-install 1-Click Sandbox onboarding.
 
-![Lumex Protocol Mobile UI](public/screenshots/mobile-ui.png)
+<p align="center">
+  <img src="public/screenshots/mobile-ui.png" width="300" alt="Lumex Protocol Mobile UI" style="border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);" />
+</p>
 
 ---
 
